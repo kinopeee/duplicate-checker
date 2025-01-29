@@ -4,23 +4,20 @@
 
 ## 機能
 
-- 関数の重複検出（同一実装、最小3行以上）
-- モジュール間の類似度チェック（Jaccard類似度アルゴリズム使用）
+- 関数の重複検出
+- モジュール間の類似度チェック
 - リソースファイル（JSON/YAML）内の重複値の検出
 
 ## インストール
 
 ```bash
-npm install @babel/parser @babel/traverse js-yaml
+npm install
 ```
 
-## 基本的な使用方法
-
-```bash
-node duplicate-checker.js [プロジェクトパス]
-```
-
-プロジェクトパスを指定しない場合は、カレントディレクトリがチェック対象となります。
+必要な依存パッケージ：
+- @babel/parser
+- @babel/traverse
+- js-yaml
 
 ## プロジェクト構成
 
@@ -28,40 +25,104 @@ node duplicate-checker.js [プロジェクトパス]
 .
 ├── duplicate-checker.js      # メインスクリプト
 ├── duplicate-checker.config.json  # 重複チェッカーの設定
-└── tsconfig.json            # TypeScript設定（オプション）
+└── tsconfig.json            # TypeScript設定
 ```
 
-## 設定
+## 使用方法
+
+```bash
+node duplicate-checker.js [プロジェクトパス]
+```
+
+プロジェクトパスを指定しない場合は、カレントディレクトリがチェック対象となります。
+
+## 設定ファイル
 
 ### duplicate-checker.config.json
+
+重複チェッカーの動作をカスタマイズするための設定ファイルです：
 
 ```json
 {
   "moduleSimilarityThreshold": 0.7,
-  "ignoredResourceKeys": ["description", "altText"],
-  "targetExtensions": [".js", ".ts", ".jsx", ".tsx", ".json", ".yaml"],
-  "excludePackageFiles": true,
-  "minFunctionLines": 3
+  "ignoredResourceKeys": [
+    "description",
+    "altText"
+  ],
+  "targetExtensions": [
+    ".js",
+    ".ts",
+    ".json",
+    ".yaml"
+  ]
 }
 ```
 
-#### パラメーター説明
+- `moduleSimilarityThreshold`: モジュールの類似度閾値（0.0〜1.0）
+- `ignoredResourceKeys`: リソースチェック時に無視するキー
+- `targetExtensions`: チェック対象のファイル拡張子
 
-- `moduleSimilarityThreshold`: モジュール間の類似度閾値（0.0〜1.0）
-  - 0.7は70%の類似度を意味する
-  - 値が大きいほど、より厳密な重複判定となる
-  - 推奨値は0.7〜0.8の範囲
-- `ignoredResourceKeys`: リソースファイル内で重複チェックを無視するキー
-- `targetExtensions`: 解析対象とするファイルの拡張子
-- `excludePackageFiles`: package.jsonを除外するかどうか（デフォルト: true）
-- `minFunctionLines`: 重複チェック対象となる関数の最小行数
+### tsconfig.json
 
-### 自動除外ディレクトリ
-- node_modules
-- .next
-- build
-- dist
-- .git
+TypeScriptプロジェクトとの互換性を確保するための設定ファイルです：
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+```
+
+主な設定項目：
+- `module`と`moduleResolution`: `NodeNext`に設定し、最新のNode.js互換性を確保
+- `target`: ES2017を対象にコンパイル
+- `lib`: 利用可能なAPI定義を指定
+- `jsx`: "preserve"でJSXの変換を保持
+- `paths`: モジュールのエイリアスを設定（`@/*`で任意のパスを参照可能）
+- `include`: TypeScriptのチェック対象ファイル
+- `exclude`: チェックから除外するファイル
+
+## 検出対象
+
+### 1. 関数の重複
+- 同じ実装を持つ関数を検出
+- 最小行数（デフォルト：3行）以上の関数が対象
+- 関数名や場所に関係なく、実装の一致を検出
+
+### 2. モジュールの類似度
+- ファイル間の類似度を計算
+- デフォルトの類似度閾値：70%以上
+- Jaccard類似度アルゴリズムを使用
+
+### 3. リソースの重複
+- JSON/YAMLファイル内の重複値を検出
+- ネストされたオブジェクトにも対応
+- キーパスとともに重複箇所を報告
 
 ## 出力フォーマット
 
@@ -83,40 +144,25 @@ node duplicate-checker.js [プロジェクトパス]
 - [ファイルパス] (キー: "[キーパス]")
 ```
 
-## Next.jsプロジェクトへの導入
+## 設定オプション
 
-### 1. package.jsonへのスクリプト追加
+デフォルトの設定：
+- `excludePackageFiles`: true（package.jsonを除外）
+- `similarityThreshold`: 0.7（モジュール類似度の閾値）
+- `minFunctionLines`: 3（関数の最小行数）
 
-```json
-{
-  "scripts": {
-    "check-duplicates": "node duplicate-checker.js"
-  }
-}
-```
+## 除外設定
 
-### 2. 実行
+以下のディレクトリは自動的に除外されます：
+- node_modules
+- .next
+- build
+- dist
+- .git
 
-```bash
-# プロジェクト全体のチェック
-npm run check-duplicates
+## 注意事項
 
-# 特定ディレクトリのチェック
-npm run check-duplicates -- src/components
-```
-
-### Next.js固有の注意事項
-- `pages`ディレクトリ内のルーティングコンポーネントは重複として検出される可能性あり
-- `getStaticProps`や`getServerSideProps`などのNext.js固有の関数は無視
-- `.next`ディレクトリは自動的に除外
-
-## 一般的な注意事項
-
-- TypeScript/JSXファイルに完全対応
-- 大規模プロジェクトでは解析に時間がかかる場合あり
-- パースエラー発生時は該当ファイルをスキップして継続
-- TypeScriptの設定に従って動作（tsconfig.jsonが存在する場合）
-
-## ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルをご覧ください。
+- TypeScript/JSXファイルにも対応しています
+- 大規模なプロジェクトの場合、解析に時間がかかる場合があります
+- パースエラーが発生した場合は、該当ファイルをスキップして処理を継続します
+- Next.jsプロジェクトと互換性があり、TypeScriptの設定に従って動作します
