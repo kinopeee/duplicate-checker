@@ -45,6 +45,17 @@ node duplicate-checker.js [プロジェクトパス]
 }
 ```
 
+#### パラメーター説明
+
+- `moduleSimilarityThreshold`: モジュール間の類似度閾値（0.0〜1.0）
+  - 0.7は70%の類似度を意味する
+  - 値が大きいほど、より厳密な重複判定となる
+  - 推奨値は0.7〜0.8の範囲
+- `ignoredResourceKeys`: リソースファイル内で重複チェックを無視するキー
+- `targetExtensions`: 解析対象とするファイルの拡張子
+- `excludePackageFiles`: package.jsonを除外するかどうか（デフォルト: true）
+- `minFunctionLines`: 重複チェック対象となる関数の最小行数
+
 ### 自動除外ディレクトリ
 - node_modules
 - .next
