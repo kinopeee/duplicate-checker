@@ -1,0 +1,13 @@
+{
+    "moduleSimilarityThreshold": 0.7,
+    "ignoredResourceKeys": [
+        "description",
+        "altText"
+    ],
+    "targetExtensions": [
+        ".js",
+        ".ts",
+        ".json",
+        ".yaml"
+    ]
+}
