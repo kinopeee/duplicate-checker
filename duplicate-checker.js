@@ -22,7 +22,15 @@ class DuplicateChecker {
     this.options = {
       excludePackageFiles: true,
       similarityThreshold: 0.7,
-      minFunctionLines: 3
+      minFunctionLines: 3,
+      excludePatterns: [
+        'tsconfig.json',
+        'package.json',
+        'package-lock.json',
+        '*.config.json',
+        '*.config.js',
+        '*.config.ts'
+      ]
     };
   }
 
@@ -44,10 +52,10 @@ class DuplicateChecker {
           result.codeFiles.push(...subFiles.codeFiles);
           result.resourceFiles.push(...subFiles.resourceFiles);
         }
-      } else {
+      } else if (!this.shouldExcludeFile(file)) {
         if (this.isCodeFile(file)) {
           result.codeFiles.push(filePath);
-        } else if (this.isResourceFile(file) && !this.shouldExcludeFile(file)) {
+        } else if (this.isResourceFile(file)) {
           result.resourceFiles.push(filePath);
         }
       }
@@ -69,13 +77,18 @@ class DuplicateChecker {
 
   // リソースファイルの判定
   isResourceFile(fileName) {
-    return /\.(json|ya?ml)$/.test(fileName);
+    return /\.(ya?ml)$/.test(fileName);
   }
 
   // ファイルを除外すべきかどうかの判定
   shouldExcludeFile(fileName) {
-    if (!this.options.excludePackageFiles) return false;
-    return fileName === 'package.json' || fileName === 'package-lock.json';
+    return this.options.excludePatterns.some(pattern => {
+      if (pattern.includes('*')) {
+        const regex = new RegExp(pattern.replace('*', '.*'));
+        return regex.test(fileName);
+      }
+      return fileName === pattern;
+    });
   }
 
   // コードのハッシュ値を生成
