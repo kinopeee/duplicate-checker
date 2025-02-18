@@ -15,6 +15,7 @@
   "resourceLocations": "検出場所:",
   "resourceLocationFormat": "- %s (キー: \"%s\")",
   "error": {
-    "occurred": "エラーが発生しました:"
+    "occurred": "エラーが発生しました:",
+    "resourceParsing": "リソースファイル %s の解析中にエラーが発生しました:"
   }
 }

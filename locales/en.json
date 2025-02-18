@@ -15,6 +15,7 @@
   "resourceLocations": "Locations:",
   "resourceLocationFormat": "- %s (key: \"%s\")",
   "error": {
-    "occurred": "An error occurred:"
+    "occurred": "An error occurred:",
+    "resourceParsing": "Error parsing resource file %s:"
   }
 }

@@ -161,7 +161,7 @@ class DuplicateChecker {
           this.checkResourceKeys(resourceData, '', file);
         }
       } catch (err) {
-        console.error(`リソースファイル ${file} の解析中にエラーが発生しました:`, err);
+        console.error(__('error.resourceParsing', { file }), err);
       }
     }
   }
@@ -383,6 +383,7 @@ checker.analyzeDuplicates()
         dup.occurrences.forEach(loc => {
           console.log(__('resourceLocationFormat', loc.file, loc.key));
         });
+      });
     }
   })
   .catch(err => {
