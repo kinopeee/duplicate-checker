@@ -61,7 +61,7 @@ class DuplicateChecker {
     };
   }
 
-  // ファイルを再帰的に検索
+  // Recursively search for files / ファイルを再帰的に検索
   async findFiles(dir) {
     const files = await fs.promises.readdir(dir);
     const result = {
@@ -91,23 +91,23 @@ class DuplicateChecker {
     return result;
   }
 
-  // 無視するディレクトリの判定
+  // Check for ignored directories / 無視するディレクトリの判定
   isIgnoredDirectory(dirName) {
     const ignoreDirs = ['node_modules', '.next', 'build', 'dist', '.git'];
     return ignoreDirs.includes(dirName);
   }
 
-  // コードファイルの判定
+  // Check for code files / コードファイルの判定
   isCodeFile(fileName) {
     return /\.(js|jsx|ts|tsx)$/.test(fileName);
   }
 
-  // リソースファイルの判定
+  // Check for resource files / リソースファイルの判定
   isResourceFile(fileName) {
     return /\.(ya?ml)$/.test(fileName);
   }
 
-  // ファイルを除外すべきかどうかの判定
+  // Check if file should be excluded / ファイルを除外すべきかどうかの判定
   shouldExcludeFile(fileName) {
     return this.options.excludePatterns.some(pattern => {
       if (pattern.includes('*')) {
@@ -118,12 +118,12 @@ class DuplicateChecker {
     });
   }
 
-  // コードのハッシュ値を生成
+  // Generate hash value for code / コードのハッシュ値を生成
   generateHash(code) {
     return crypto.createHash('md5').update(code).digest('hex');
   }
 
-  // モジュールの類似度を計算
+  // Calculate module similarity / モジュールの類似度を計算
   calculateModuleSimilarity(code1, code2) {
     const lines1 = code1.split('\n').filter(line => line.trim());
     const lines2 = code2.split('\n').filter(line => line.trim());
@@ -136,14 +136,14 @@ class DuplicateChecker {
     return similarity;
   }
 
-  // Jaccard類似度の計算
+  // Calculate Jaccard similarity / Jaccard類似度の計算
   calculateJaccardSimilarity(set1, set2) {
     const intersection = new Set([...set1].filter(x => set2.has(x)));
     const union = new Set([...set1, ...set2]);
     return intersection.size / union.size;
   }
 
-  // リソースの重複をチェック
+  // Check for duplicate resources / リソースの重複をチェック
   async checkResourceDuplicates(files) {
     for (const file of files) {
       try {
@@ -166,7 +166,7 @@ class DuplicateChecker {
     }
   }
 
-  // リソースのキーを再帰的にチェック
+  // Recursively check resource keys / リソースのキーを再帰的にチェック
   checkResourceKeys(obj, prefix, file) {
     if (!obj || typeof obj !== 'object') return;
 
@@ -198,7 +198,7 @@ class DuplicateChecker {
     }
   }
 
-  // モジュールの重複をチェック
+  // Check for duplicate modules / モジュールの重複をチェック
   async checkModuleDuplicates(files) {
     const modules = new Map();
 
@@ -224,7 +224,7 @@ class DuplicateChecker {
     }
   }
 
-  // ファイルを解析して関数の重複を検出
+  // Analyze files to detect duplicate functions / ファイルを解析して関数の重複を検出
   async analyzeDuplicates() {
     const { codeFiles, resourceFiles } = await this.findFiles(this.projectPath);
 
@@ -262,7 +262,7 @@ class DuplicateChecker {
     return this.formatResults();
   }
 
-  // 関数のコードを取得
+  // Get function code / 関数のコードを取得
   getFunctionCode(node) {
     if (node.body.type === 'BlockStatement') {
       try {
@@ -290,7 +290,7 @@ class DuplicateChecker {
     return node.body.type || '';
   }
 
-  // 関数の重複をチェック
+  // Check for duplicate functions / 関数の重複をチェック
   checkFunction(node, file, name = node.id?.name) {
     if (!name) return;
 
@@ -315,7 +315,7 @@ class DuplicateChecker {
     }
   }
 
-  // 結果をフォーマット
+  // Format results / 結果をフォーマット
   formatResults() {
     return {
       functions: Array.from(this.duplicates.functions.values()).map(dup => ({
@@ -340,7 +340,7 @@ class DuplicateChecker {
   }
 }
 
-// メイン処理の実行
+// Execute main process / メイン処理の実行
 const projectPath = process.argv[2] || '.';
 const checker = new DuplicateChecker(projectPath);
 
