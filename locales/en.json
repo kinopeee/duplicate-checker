@@ -13,5 +13,8 @@
   "noDuplicateResources": "No duplicate resources found.",
   "valueFormat": "Value: %s",
   "resourceLocations": "Locations:",
-  "resourceLocationFormat": "- %s (key: \"%s\")"
+  "resourceLocationFormat": "- %s (key: \"%s\")",
+  "error": {
+    "occurred": "An error occurred:"
+  }
 }

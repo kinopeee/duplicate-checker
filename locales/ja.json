@@ -13,5 +13,8 @@
   "noDuplicateResources": "重複するリソースは見つかりませんでした。",
   "valueFormat": "値: %s",
   "resourceLocations": "検出場所:",
-  "resourceLocationFormat": "- %s (キー: \"%s\")"
+  "resourceLocationFormat": "- %s (キー: \"%s\")",
+  "error": {
+    "occurred": "エラーが発生しました:"
+  }
 }

@@ -386,7 +386,7 @@ checker.analyzeDuplicates()
     }
   })
   .catch(err => {
-    console.error('エラーが発生しました:', err);
+    console.error(__('error.occurred'), err);
     process.exit(1);
   });
 
