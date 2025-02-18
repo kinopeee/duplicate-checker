@@ -1,0 +1,21 @@
+{
+  "duplicateFunctions": "重複している関数:",
+  "noDuplicateFunctions": "重複する関数は見つかりませんでした。",
+  "functionName": "関数名: %s",
+  "locations": "検出場所:",
+  "locationFormat": "- %s (名前: \"%s\")",
+  "similarModules": "類似したモジュール:",
+  "noSimilarModules": "類似するモジュールは見つかりませんでした。",
+  "similarityFormat": "類似度: %s",
+  "files": "ファイル:",
+  "fileFormat": "- %s",
+  "duplicateResources": "重複しているリソース:",
+  "noDuplicateResources": "重複するリソースは見つかりませんでした。",
+  "valueFormat": "値: %s",
+  "resourceLocations": "検出場所:",
+  "resourceLocationFormat": "- %s (キー: \"%s\")",
+  "error": {
+    "occurred": "エラーが発生しました:",
+    "resourceParsing": "リソースファイル %s の解析中にエラーが発生しました:"
+  }
+}

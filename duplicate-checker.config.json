@@ -9,5 +9,6 @@
         ".ts",
         ".json",
         ".yaml"
-    ]
+    ],
+    "language": "ja"
 }

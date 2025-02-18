@@ -4,6 +4,33 @@ import parser from '@babel/parser';
 import traverse from '@babel/traverse';
 import crypto from 'crypto';
 import yaml from 'js-yaml';
+import { I18n } from 'i18n';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Initialize i18n
+const i18n = new I18n({
+  locales: ['en', 'ja'],
+  directory: path.join(__dirname, 'locales'),
+  defaultLocale: 'ja',
+  objectNotation: true,
+  register: global
+});
+
+// Set language based on priority: ENV > config > default
+const loadConfig = () => {
+  try {
+    const configPath = path.join(process.cwd(), 'duplicate-checker.config.json');
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch (error) {
+    return {};
+  }
+};
+
+const config = loadConfig();
+const lang = process.env.DUPLICATE_CHECKER_LANG || config.language || 'ja';
+i18n.setLocale(lang);
 
 // @babel/traverseのデフォルトエクスポートを使用
 const { default: traverseDefault } = traverse;
@@ -34,7 +61,7 @@ class DuplicateChecker {
     };
   }
 
-  // ファイルを再帰的に検索
+  // Recursively search for files / ファイルを再帰的に検索
   async findFiles(dir) {
     const files = await fs.promises.readdir(dir);
     const result = {
@@ -64,23 +91,23 @@ class DuplicateChecker {
     return result;
   }
 
-  // 無視するディレクトリの判定
+  // Check for ignored directories / 無視するディレクトリの判定
   isIgnoredDirectory(dirName) {
     const ignoreDirs = ['node_modules', '.next', 'build', 'dist', '.git'];
     return ignoreDirs.includes(dirName);
   }
 
-  // コードファイルの判定
+  // Check for code files / コードファイルの判定
   isCodeFile(fileName) {
     return /\.(js|jsx|ts|tsx)$/.test(fileName);
   }
 
-  // リソースファイルの判定
+  // Check for resource files / リソースファイルの判定
   isResourceFile(fileName) {
     return /\.(ya?ml)$/.test(fileName);
   }
 
-  // ファイルを除外すべきかどうかの判定
+  // Check if file should be excluded / ファイルを除外すべきかどうかの判定
   shouldExcludeFile(fileName) {
     return this.options.excludePatterns.some(pattern => {
       if (pattern.includes('*')) {
@@ -91,12 +118,12 @@ class DuplicateChecker {
     });
   }
 
-  // コードのハッシュ値を生成
+  // Generate hash value for code / コードのハッシュ値を生成
   generateHash(code) {
     return crypto.createHash('md5').update(code).digest('hex');
   }
 
-  // モジュールの類似度を計算
+  // Calculate module similarity / モジュールの類似度を計算
   calculateModuleSimilarity(code1, code2) {
     const lines1 = code1.split('\n').filter(line => line.trim());
     const lines2 = code2.split('\n').filter(line => line.trim());
@@ -109,14 +136,14 @@ class DuplicateChecker {
     return similarity;
   }
 
-  // Jaccard類似度の計算
+  // Calculate Jaccard similarity / Jaccard類似度の計算
   calculateJaccardSimilarity(set1, set2) {
     const intersection = new Set([...set1].filter(x => set2.has(x)));
     const union = new Set([...set1, ...set2]);
     return intersection.size / union.size;
   }
 
-  // リソースの重複をチェック
+  // Check for duplicate resources / リソースの重複をチェック
   async checkResourceDuplicates(files) {
     for (const file of files) {
       try {
@@ -134,12 +161,12 @@ class DuplicateChecker {
           this.checkResourceKeys(resourceData, '', file);
         }
       } catch (err) {
-        console.error(`リソースファイル ${file} の解析中にエラーが発生しました:`, err);
+        console.error(__('error.resourceParsing', { file }), err);
       }
     }
   }
 
-  // リソースのキーを再帰的にチェック
+  // Recursively check resource keys / リソースのキーを再帰的にチェック
   checkResourceKeys(obj, prefix, file) {
     if (!obj || typeof obj !== 'object') return;
 
@@ -171,7 +198,7 @@ class DuplicateChecker {
     }
   }
 
-  // モジュールの重複をチェック
+  // Check for duplicate modules / モジュールの重複をチェック
   async checkModuleDuplicates(files) {
     const modules = new Map();
 
@@ -197,7 +224,7 @@ class DuplicateChecker {
     }
   }
 
-  // ファイルを解析して関数の重複を検出
+  // Analyze files to detect duplicate functions / ファイルを解析して関数の重複を検出
   async analyzeDuplicates() {
     const { codeFiles, resourceFiles } = await this.findFiles(this.projectPath);
 
@@ -235,7 +262,7 @@ class DuplicateChecker {
     return this.formatResults();
   }
 
-  // 関数のコードを取得
+  // Get function code / 関数のコードを取得
   getFunctionCode(node) {
     if (node.body.type === 'BlockStatement') {
       try {
@@ -263,7 +290,7 @@ class DuplicateChecker {
     return node.body.type || '';
   }
 
-  // 関数の重複をチェック
+  // Check for duplicate functions / 関数の重複をチェック
   checkFunction(node, file, name = node.id?.name) {
     if (!name) return;
 
@@ -288,7 +315,7 @@ class DuplicateChecker {
     }
   }
 
-  // 結果をフォーマット
+  // Format results / 結果をフォーマット
   formatResults() {
     return {
       functions: Array.from(this.duplicates.functions.values()).map(dup => ({
@@ -313,54 +340,54 @@ class DuplicateChecker {
   }
 }
 
-// メイン処理の実行
+// Execute main process / メイン処理の実行
 const projectPath = process.argv[2] || '.';
 const checker = new DuplicateChecker(projectPath);
 
 checker.analyzeDuplicates()
   .then(duplicates => {
     // 関数の重複
-    console.log('\n重複している関数:');
+    console.log('\n' + __('duplicateFunctions'));
     if (duplicates.functions.length === 0) {
-      console.log('重複する関数は見つかりませんでした。');
+      console.log(__('noDuplicateFunctions'));
     } else {
       duplicates.functions.forEach(dup => {
-        console.log(`\n関数名: ${dup.functionName}`);
-        console.log('検出場所:');
+        console.log('\n' + __('functionName', dup.functionName));
+        console.log(__('locations'));
         dup.occurrences.forEach(loc => {
-          console.log(`- ${loc.file} (名前: "${loc.name}")`);
+          console.log(__('locationFormat', loc.file, loc.name));
         });
       });
     }
 
-    // モジュールの重複
-    console.log('\n類似したモジュール:');
+    // Module duplicates
+    console.log('\n' + __('similarModules'));
     if (duplicates.modules.length === 0) {
-      console.log('類似するモジュールは見つかりませんでした。');
+      console.log(__('noSimilarModules'));
     } else {
       duplicates.modules.forEach(dup => {
-        console.log(`\n類似度: ${dup.similarity}`);
-        console.log('ファイル:');
-        dup.files.forEach(file => console.log(`- ${file}`));
+        console.log('\n' + __('similarityFormat', dup.similarity));
+        console.log(__('files'));
+        dup.files.forEach(file => console.log(__('fileFormat', file)));
       });
     }
 
-    // リソースの重複
-    console.log('\n重複しているリソース:');
+    // Resource duplicates
+    console.log('\n' + __('duplicateResources'));
     if (duplicates.resources.length === 0) {
-      console.log('重複するリソースは見つかりませんでした。');
+      console.log(__('noDuplicateResources'));
     } else {
       duplicates.resources.forEach(dup => {
-        console.log(`\n値: ${dup.value}`);
-        console.log('検出場所:');
+        console.log('\n' + __('valueFormat', dup.value));
+        console.log(__('resourceLocations'));
         dup.occurrences.forEach(loc => {
-          console.log(`- ${loc.file} (キー: "${loc.key}")`);
+          console.log(__('resourceLocationFormat', loc.file, loc.key));
         });
       });
     }
   })
   .catch(err => {
-    console.error('エラーが発生しました:', err);
+    console.error(__('error.occurred'), err);
     process.exit(1);
   });
 

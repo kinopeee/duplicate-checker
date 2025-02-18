@@ -1,0 +1,589 @@
+From b38ef3bc4fe41f74b448b06feaefe39407bcb2b4 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:54:26 +0000
+Subject: [PATCH 1/5] feat: add error message translations and fix i18n
+ implementation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ duplicate-checker.js | 2 +-
+ locales/en.json      | 5 ++++-
+ locales/ja.json      | 5 ++++-
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/duplicate-checker.js b/duplicate-checker.js
+index d389cde..653e9ec 100644
+--- a/duplicate-checker.js
++++ b/duplicate-checker.js
+@@ -386,7 +386,7 @@ checker.analyzeDuplicates()
+     }
+   })
+   .catch(err => {
+-    console.error('エラーが発生しました:', err);
++    console.error(__('error.occurred'), err);
+     process.exit(1);
+   });
+ 
+diff --git a/locales/en.json b/locales/en.json
+index 1eabf19..2028ee4 100644
+--- a/locales/en.json
++++ b/locales/en.json
+@@ -13,5 +13,8 @@
+   "noDuplicateResources": "No duplicate resources found.",
+   "valueFormat": "Value: %s",
+   "resourceLocations": "Locations:",
+-  "resourceLocationFormat": "- %s (key: \"%s\")"
++  "resourceLocationFormat": "- %s (key: \"%s\")",
++  "error": {
++    "occurred": "An error occurred:"
++  }
+ }
+diff --git a/locales/ja.json b/locales/ja.json
+index 927e156..9cc5a95 100644
+--- a/locales/ja.json
++++ b/locales/ja.json
+@@ -13,5 +13,8 @@
+   "noDuplicateResources": "重複するリソースは見つかりませんでした。",
+   "valueFormat": "値: %s",
+   "resourceLocations": "検出場所:",
+-  "resourceLocationFormat": "- %s (キー: \"%s\")"
++  "resourceLocationFormat": "- %s (キー: \"%s\")",
++  "error": {
++    "occurred": "エラーが発生しました:"
++  }
+ }
+-- 
+2.34.1
+
+
+From 66cc2996b725e767d794dc6834d93281e13c740d Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:54:42 +0000
+Subject: [PATCH 2/5] fix: add missing brace and internationalize resource
+ parsing error message
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ duplicate-checker.js | 3 ++-
+ locales/en.json      | 3 ++-
+ locales/ja.json      | 3 ++-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/duplicate-checker.js b/duplicate-checker.js
+index 653e9ec..1a2985d 100644
+--- a/duplicate-checker.js
++++ b/duplicate-checker.js
+@@ -161,7 +161,7 @@ class DuplicateChecker {
+           this.checkResourceKeys(resourceData, '', file);
+         }
+       } catch (err) {
+-        console.error(`リソースファイル ${file} の解析中にエラーが発生しました:`, err);
++        console.error(__('error.resourceParsing', { file }), err);
+       }
+     }
+   }
+@@ -383,6 +383,7 @@ checker.analyzeDuplicates()
+         dup.occurrences.forEach(loc => {
+           console.log(__('resourceLocationFormat', loc.file, loc.key));
+         });
++      });
+     }
+   })
+   .catch(err => {
+diff --git a/locales/en.json b/locales/en.json
+index 2028ee4..d989ee3 100644
+--- a/locales/en.json
++++ b/locales/en.json
+@@ -15,6 +15,7 @@
+   "resourceLocations": "Locations:",
+   "resourceLocationFormat": "- %s (key: \"%s\")",
+   "error": {
+-    "occurred": "An error occurred:"
++    "occurred": "An error occurred:",
++    "resourceParsing": "Error parsing resource file %s:"
+   }
+ }
+diff --git a/locales/ja.json b/locales/ja.json
+index 9cc5a95..e627bc1 100644
+--- a/locales/ja.json
++++ b/locales/ja.json
+@@ -15,6 +15,7 @@
+   "resourceLocations": "検出場所:",
+   "resourceLocationFormat": "- %s (キー: \"%s\")",
+   "error": {
+-    "occurred": "エラーが発生しました:"
++    "occurred": "エラーが発生しました:",
++    "resourceParsing": "リソースファイル %s の解析中にエラーが発生しました:"
+   }
+ }
+-- 
+2.34.1
+
+
+From 3f100786252307c0ad9d04e4cb2d3871fc017903 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:55:08 +0000
+Subject: [PATCH 3/5] docs: add English translations for code comments
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ duplicate-checker.js | 32 ++++++++++++++++----------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/duplicate-checker.js b/duplicate-checker.js
+index 1a2985d..05bfa60 100644
+--- a/duplicate-checker.js
++++ b/duplicate-checker.js
+@@ -61,7 +61,7 @@ class DuplicateChecker {
+     };
+   }
+ 
+-  // ファイルを再帰的に検索
++  // Recursively search for files / ファイルを再帰的に検索
+   async findFiles(dir) {
+     const files = await fs.promises.readdir(dir);
+     const result = {
+@@ -91,23 +91,23 @@ class DuplicateChecker {
+     return result;
+   }
+ 
+-  // 無視するディレクトリの判定
++  // Check for ignored directories / 無視するディレクトリの判定
+   isIgnoredDirectory(dirName) {
+     const ignoreDirs = ['node_modules', '.next', 'build', 'dist', '.git'];
+     return ignoreDirs.includes(dirName);
+   }
+ 
+-  // コードファイルの判定
++  // Check for code files / コードファイルの判定
+   isCodeFile(fileName) {
+     return /\.(js|jsx|ts|tsx)$/.test(fileName);
+   }
+ 
+-  // リソースファイルの判定
++  // Check for resource files / リソースファイルの判定
+   isResourceFile(fileName) {
+     return /\.(ya?ml)$/.test(fileName);
+   }
+ 
+-  // ファイルを除外すべきかどうかの判定
++  // Check if file should be excluded / ファイルを除外すべきかどうかの判定
+   shouldExcludeFile(fileName) {
+     return this.options.excludePatterns.some(pattern => {
+       if (pattern.includes('*')) {
+@@ -118,12 +118,12 @@ class DuplicateChecker {
+     });
+   }
+ 
+-  // コードのハッシュ値を生成
++  // Generate hash value for code / コードのハッシュ値を生成
+   generateHash(code) {
+     return crypto.createHash('md5').update(code).digest('hex');
+   }
+ 
+-  // モジュールの類似度を計算
++  // Calculate module similarity / モジュールの類似度を計算
+   calculateModuleSimilarity(code1, code2) {
+     const lines1 = code1.split('\n').filter(line => line.trim());
+     const lines2 = code2.split('\n').filter(line => line.trim());
+@@ -136,14 +136,14 @@ class DuplicateChecker {
+     return similarity;
+   }
+ 
+-  // Jaccard類似度の計算
++  // Calculate Jaccard similarity / Jaccard類似度の計算
+   calculateJaccardSimilarity(set1, set2) {
+     const intersection = new Set([...set1].filter(x => set2.has(x)));
+     const union = new Set([...set1, ...set2]);
+     return intersection.size / union.size;
+   }
+ 
+-  // リソースの重複をチェック
++  // Check for duplicate resources / リソースの重複をチェック
+   async checkResourceDuplicates(files) {
+     for (const file of files) {
+       try {
+@@ -166,7 +166,7 @@ class DuplicateChecker {
+     }
+   }
+ 
+-  // リソースのキーを再帰的にチェック
++  // Recursively check resource keys / リソースのキーを再帰的にチェック
+   checkResourceKeys(obj, prefix, file) {
+     if (!obj || typeof obj !== 'object') return;
+ 
+@@ -198,7 +198,7 @@ class DuplicateChecker {
+     }
+   }
+ 
+-  // モジュールの重複をチェック
++  // Check for duplicate modules / モジュールの重複をチェック
+   async checkModuleDuplicates(files) {
+     const modules = new Map();
+ 
+@@ -224,7 +224,7 @@ class DuplicateChecker {
+     }
+   }
+ 
+-  // ファイルを解析して関数の重複を検出
++  // Analyze files to detect duplicate functions / ファイルを解析して関数の重複を検出
+   async analyzeDuplicates() {
+     const { codeFiles, resourceFiles } = await this.findFiles(this.projectPath);
+ 
+@@ -262,7 +262,7 @@ class DuplicateChecker {
+     return this.formatResults();
+   }
+ 
+-  // 関数のコードを取得
++  // Get function code / 関数のコードを取得
+   getFunctionCode(node) {
+     if (node.body.type === 'BlockStatement') {
+       try {
+@@ -290,7 +290,7 @@ class DuplicateChecker {
+     return node.body.type || '';
+   }
+ 
+-  // 関数の重複をチェック
++  // Check for duplicate functions / 関数の重複をチェック
+   checkFunction(node, file, name = node.id?.name) {
+     if (!name) return;
+ 
+@@ -315,7 +315,7 @@ class DuplicateChecker {
+     }
+   }
+ 
+-  // 結果をフォーマット
++  // Format results / 結果をフォーマット
+   formatResults() {
+     return {
+       functions: Array.from(this.duplicates.functions.values()).map(dup => ({
+@@ -340,7 +340,7 @@ class DuplicateChecker {
+   }
+ }
+ 
+-// メイン処理の実行
++// Execute main process / メイン処理の実行
+ const projectPath = process.argv[2] || '.';
+ const checker = new DuplicateChecker(projectPath);
+ 
+-- 
+2.34.1
+
+
+From a69036c11c393037e649f5126c269b1ec5f8e421 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:55:26 +0000
+Subject: [PATCH 4/5] test: add basic test file with language support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ test.js | 74 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+ create mode 100644 test.js
+
+diff --git a/test.js b/test.js
+new file mode 100644
+index 0000000..7330773
+--- /dev/null
++++ b/test.js
+@@ -0,0 +1,74 @@
++import assert from 'assert';
++import DuplicateChecker from './duplicate-checker.js';
++import fs from 'fs';
++import path from 'path';
++
++// Basic test setup for both languages
++const languages = ['en', 'ja'];
++
++// Create test directory and files
++const setupTestFiles = () => {
++  const testDir = path.join(process.cwd(), 'test-files');
++  if (!fs.existsSync(testDir)) {
++    fs.mkdirSync(testDir);
++  }
++
++  // Create test files with duplicate functions
++  const file1Content = `
++    function test1() {
++      const a = 1;
++      const b = 2;
++      return a + b;
++    }
++  `;
++
++  const file2Content = `
++    function test2() {
++      const a = 1;
++      const b = 2;
++      return a + b;
++    }
++  `;
++
++  fs.writeFileSync(path.join(testDir, 'file1.js'), file1Content);
++  fs.writeFileSync(path.join(testDir, 'file2.js'), file2Content);
++  return testDir;
++};
++
++// Clean up test files
++const cleanupTestFiles = (testDir) => {
++  if (fs.existsSync(testDir)) {
++    fs.rmSync(testDir, { recursive: true, force: true });
++  }
++};
++
++// Test both languages
++const runTests = async () => {
++  for (const lang of languages) {
++    console.log(`\nTesting language: ${lang}`);
++    process.env.DUPLICATE_CHECKER_LANG = lang;
++    
++    const testDir = setupTestFiles();
++    const checker = new DuplicateChecker(testDir);
++    
++    try {
++      const results = await checker.analyzeDuplicates();
++      // Basic structure verification
++      assert(Array.isArray(results.functions), 'functions should be an array');
++      assert(Array.isArray(results.modules), 'modules should be an array');
++      assert(Array.isArray(results.resources), 'resources should be an array');
++      
++      console.log(`✓ Basic structure tests passed for ${lang}`);
++    } catch (error) {
++      console.error(`✗ Tests failed for ${lang}:`, error);
++      process.exit(1);
++    } finally {
++      cleanupTestFiles(testDir);
++    }
++  }
++};
++
++runTests().catch(error => {
++  console.error('Test execution failed:', error);
++  process.exit(1);
++});
+-- 
+2.34.1
+
+
+From 8651bd2d0e750928713c54c3ec3b083657e2e5ca Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:55:54 +0000
+Subject: [PATCH 5/5] docs: add English README with i18n documentation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ README.en.md | 187 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 187 insertions(+)
+ create mode 100644 README.en.md
+
+diff --git a/README.en.md b/README.en.md
+new file mode 100644
+index 0000000..1829318
+--- /dev/null
++++ b/README.en.md
+@@ -0,0 +1,187 @@
++# Duplicate Code Checker
++
++A static analysis tool for detecting code and resource duplicates in projects.
++
++## Features
++
++- Function duplicate detection
++- Module similarity checking
++- Duplicate value detection in resource files (JSON/YAML)
++
++## Installation
++
++```bash
++npm install
++```
++
++Required dependencies:
++- @babel/parser
++- @babel/traverse
++- js-yaml
++- i18n
++
++## Project Structure
++
++```
++.
++├── duplicate-checker.js      # Main script
++├── duplicate-checker.config.json  # Duplicate checker configuration
++├── tsconfig.json            # TypeScript configuration
++└── locales/                 # Language files
++    ├── en.json             # English translations
++    └── ja.json             # Japanese translations
++```
++
++## Usage
++
++```bash
++node duplicate-checker.js [project_path]
++```
++
++If no project path is specified, the current directory will be checked.
++
++## Language Configuration
++
++The tool supports both English and Japanese languages. Language selection follows this priority:
++
++1. Environment variable: `DUPLICATE_CHECKER_LANG`
++   ```bash
++   DUPLICATE_CHECKER_LANG=en node duplicate-checker.js
++   ```
++
++2. Configuration file (`duplicate-checker.config.json`):
++   ```json
++   {
++     "language": "en"
++   }
++   ```
++
++3. Default: Japanese (for backward compatibility)
++
++## Duplicate Check Configuration
++
++### duplicate-checker.config.json
++
++Configuration file to customize the duplicate checker's behavior:
++
++```json
++{
++  "moduleSimilarityThreshold": 0.7,
++  "ignoredResourceKeys": [
++    "description",
++    "altText"
++  ],
++  "targetExtensions": [
++    ".js",
++    ".ts",
++    ".yaml"
++  ],
++  "excludePatterns": [
++    "tsconfig.json",
++    "package.json",
++    "*.config.json",
++    "*.config.js",
++    "*.config.ts"
++  ],
++  "language": "en"
++}
++```
++
++- `moduleSimilarityThreshold`: Module similarity threshold (0.0 to 1.0)
++- `ignoredResourceKeys`: Keys to ignore during resource checking
++- `targetExtensions`: Target file extensions for checking
++- `excludePatterns`: Files to exclude from duplicate checking (supports glob patterns)
++- `language`: Interface language (en/ja)
++
++> Note: Configuration files (tsconfig.json, package.json, *.config.json, etc.) are excluded from duplicate checking by default. These files often contain similar configurations that serve different purposes.
++
++## Detection Targets
++
++### 1. Function Duplicates
++- Detects functions with identical implementations
++- Only functions with minimum lines (default: 3 lines) are checked
++- Detects implementation matches regardless of function names or locations
++
++### 2. Module Similarity
++- Calculates similarity between files
++- Default similarity threshold: 70% or higher
++- Uses Jaccard similarity algorithm
++
++### 3. Resource Duplicates
++- Detects duplicate values in YAML files
++- Supports nested objects
++- Reports duplicates with their key paths
++
++## Output Format
++
++```
++Duplicate functions:
++Function name: [function_name]
++Locations:
++- [file_path] (name: "[function_name]")
++
++Similar modules:
++Similarity: [similarity]%
++Files:
++- [file_path1]
++- [file_path2]
++
++Duplicate resources:
++Value: [duplicate_value]
++Locations:
++- [file_path] (key: "[key_path]")
++```
++
++## Excluded Directories
++
++The following directories are automatically excluded:
++- node_modules
++- .next
++- build
++- dist
++- .git
++
++## Project Configuration (Reference)
++
++This tool is designed for use with TypeScript projects. Here's the recommended TypeScript configuration:
++
++### tsconfig.json
++
++```json
++{
++  "compilerOptions": {
++    "target": "ES2017",
++    "lib": ["dom", "dom.iterable", "esnext"],
++    "allowJs": true,
++    "skipLibCheck": true,
++    "strict": true,
++    "noEmit": true,
++    "esModuleInterop": true,
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "jsx": "preserve",
++    "incremental": true,
++    "paths": {
++      "@/*": ["./*"]
++    }
++  },
++  "include": [
++    "next-env.d.ts",
++    "**/*.ts",
++    "**/*.tsx",
++    ".next/types/**/*.ts"
++  ],
++  "exclude": [
++    "node_modules"
++  ]
++}
++```
++
++## Notes
++
++- Supports TypeScript/JSX files
++- Analysis may take time for large projects
++- Skips files with parse errors and continues processing
++- Compatible with Next.js projects and follows TypeScript configuration
+-- 
+2.34.1
+
