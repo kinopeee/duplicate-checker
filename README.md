@@ -18,6 +18,7 @@ npm install
 - @babel/parser
 - @babel/traverse
 - js-yaml
+- i18n
 
 ## プロジェクト構成
 
@@ -25,7 +26,10 @@ npm install
 .
 ├── duplicate-checker.js      # メインスクリプト
 ├── duplicate-checker.config.json  # 重複チェッカーの設定
-└── tsconfig.json            # TypeScript設定
+├── tsconfig.json            # TypeScript設定
+└── locales/                 # 言語ファイル
+    ├── en.json             # 英語翻訳
+    └── ja.json             # 日本語翻訳
 ```
 
 ## 使用方法
@@ -35,6 +39,25 @@ node duplicate-checker.js [プロジェクトパス]
 ```
 
 プロジェクトパスを指定しない場合は、カレントディレクトリがチェック対象となります。
+
+## 言語設定
+
+このツールは日本語と英語の両方をサポートしています。言語の選択は以下の優先順位で行われます：
+
+1. 環境変数: `DUPLICATE_CHECKER_LANG`
+   ```bash
+   DUPLICATE_CHECKER_LANG=en node duplicate-checker.js
+   ```
+
+2. 設定ファイル（`duplicate-checker.config.json`）:
+   ```json
+   {
+     "language": "en"
+   }
+   ```
+
+3. デフォルト: 日本語（後方互換性のため）
+
 
 ## 重複チェックの設定
 
@@ -54,6 +77,7 @@ node duplicate-checker.js [プロジェクトパス]
     ".ts",
     ".yaml"
   ],
+  "language": "ja",
   "excludePatterns": [
     "tsconfig.json",
     "package.json",
