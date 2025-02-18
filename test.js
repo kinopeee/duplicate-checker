@@ -100,10 +100,15 @@ const runTests = async () => {
       assert(results.functions[0].functionName === 'test1' || results.functions[0].functionName === 'test2',
         'Should detect correct function names');
       
-      // Module similarity
-      assert(results.modules.length > 0, 'Should detect similar modules');
-      assert(parseFloat(results.modules[0].similarity) > 70,
-        'Should detect high similarity between test files');
+      // Module similarity (files are identical, so similarity should be 100%)
+      const similarity = results.modules.length > 0 ? parseFloat(results.modules[0].similarity) : 0;
+      assert(similarity >= 90, `Module similarity should be high (got ${similarity}%)`);
+      
+      // Verify module paths
+      if (results.modules.length > 0) {
+        assert(results.modules[0].files.length === 2, 'Should have two similar files');
+        assert(results.modules[0].files.every(f => f.endsWith('.js')), 'Files should be JavaScript files');
+      }
       
       // Test output messages
       const output = await new Promise(resolve => {
