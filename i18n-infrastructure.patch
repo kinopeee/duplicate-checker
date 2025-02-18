@@ -1,0 +1,237 @@
+From f205a6c07334366acbe11351abb2fa2e70298c48 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:53:11 +0000
+Subject: [PATCH 1/4] feat: add locale files structure for i18n support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ locales/en.json | 0
+ locales/ja.json | 0
+ 2 files changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 locales/en.json
+ create mode 100644 locales/ja.json
+
+diff --git a/locales/en.json b/locales/en.json
+new file mode 100644
+index 0000000..e69de29
+diff --git a/locales/ja.json b/locales/ja.json
+new file mode 100644
+index 0000000..e69de29
+-- 
+2.34.1
+
+
+From 9d323fb887dda21c167e5d46161101cac6e02d26 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:53:27 +0000
+Subject: [PATCH 2/4] feat: add Japanese and English translations for console
+ messages
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ locales/en.json | 17 +++++++++++++++++
+ locales/ja.json | 17 +++++++++++++++++
+ 2 files changed, 34 insertions(+)
+
+diff --git a/locales/en.json b/locales/en.json
+index e69de29..1eabf19 100644
+--- a/locales/en.json
++++ b/locales/en.json
+@@ -0,0 +1,17 @@
++{
++  "duplicateFunctions": "Duplicate functions:",
++  "noDuplicateFunctions": "No duplicate functions found.",
++  "functionName": "Function name: %s",
++  "locations": "Locations:",
++  "locationFormat": "- %s (name: \"%s\")",
++  "similarModules": "Similar modules:",
++  "noSimilarModules": "No similar modules found.",
++  "similarityFormat": "Similarity: %s",
++  "files": "Files:",
++  "fileFormat": "- %s",
++  "duplicateResources": "Duplicate resources:",
++  "noDuplicateResources": "No duplicate resources found.",
++  "valueFormat": "Value: %s",
++  "resourceLocations": "Locations:",
++  "resourceLocationFormat": "- %s (key: \"%s\")"
++}
+diff --git a/locales/ja.json b/locales/ja.json
+index e69de29..927e156 100644
+--- a/locales/ja.json
++++ b/locales/ja.json
+@@ -0,0 +1,17 @@
++{
++  "duplicateFunctions": "重複している関数:",
++  "noDuplicateFunctions": "重複する関数は見つかりませんでした。",
++  "functionName": "関数名: %s",
++  "locations": "検出場所:",
++  "locationFormat": "- %s (名前: \"%s\")",
++  "similarModules": "類似したモジュール:",
++  "noSimilarModules": "類似するモジュールは見つかりませんでした。",
++  "similarityFormat": "類似度: %s",
++  "files": "ファイル:",
++  "fileFormat": "- %s",
++  "duplicateResources": "重複しているリソース:",
++  "noDuplicateResources": "重複するリソースは見つかりませんでした。",
++  "valueFormat": "値: %s",
++  "resourceLocations": "検出場所:",
++  "resourceLocationFormat": "- %s (キー: \"%s\")"
++}
+-- 
+2.34.1
+
+
+From d2b6b7949f336eea5d7c3e5fa0019a16e94392cf Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:53:39 +0000
+Subject: [PATCH 3/4] feat: add language configuration support with Japanese
+ default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ duplicate-checker.config.json | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/duplicate-checker.config.json b/duplicate-checker.config.json
+index 42b8f2d..53c4a70 100644
+--- a/duplicate-checker.config.json
++++ b/duplicate-checker.config.json
+@@ -9,5 +9,6 @@
+         ".ts",
+         ".json",
+         ".yaml"
+-    ]
+-}
+\ No newline at end of file
++    ],
++    "language": "ja"
++}
+-- 
+2.34.1
+
+
+From 0adcc5092bfebf9b9b2f92f00adf6897f7692c99 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Tue, 18 Feb 2025 08:54:03 +0000
+Subject: [PATCH 4/4] feat: implement i18n support in main script with language
+ selection priority
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: 木下雄一朗 <kinoshita@key-planning.co.jp>
+---
+ duplicate-checker.js | 62 +++++++++++++++++++++++++++++++-------------
+ 1 file changed, 44 insertions(+), 18 deletions(-)
+
+diff --git a/duplicate-checker.js b/duplicate-checker.js
+index 94988cf..d389cde 100644
+--- a/duplicate-checker.js
++++ b/duplicate-checker.js
+@@ -4,6 +4,33 @@ import parser from '@babel/parser';
+ import traverse from '@babel/traverse';
+ import crypto from 'crypto';
+ import yaml from 'js-yaml';
++import { I18n } from 'i18n';
++import { fileURLToPath } from 'url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++
++// Initialize i18n
++const i18n = new I18n({
++  locales: ['en', 'ja'],
++  directory: path.join(__dirname, 'locales'),
++  defaultLocale: 'ja',
++  objectNotation: true,
++  register: global
++});
++
++// Set language based on priority: ENV > config > default
++const loadConfig = () => {
++  try {
++    const configPath = path.join(process.cwd(), 'duplicate-checker.config.json');
++    return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
++  } catch (error) {
++    return {};
++  }
++};
++
++const config = loadConfig();
++const lang = process.env.DUPLICATE_CHECKER_LANG || config.language || 'ja';
++i18n.setLocale(lang);
+ 
+ // @babel/traverseのデフォルトエクスポートを使用
+ const { default: traverseDefault } = traverse;
+@@ -320,43 +347,42 @@ const checker = new DuplicateChecker(projectPath);
+ checker.analyzeDuplicates()
+   .then(duplicates => {
+     // 関数の重複
+-    console.log('\n重複している関数:');
++    console.log('\n' + __('duplicateFunctions'));
+     if (duplicates.functions.length === 0) {
+-      console.log('重複する関数は見つかりませんでした。');
++      console.log(__('noDuplicateFunctions'));
+     } else {
+       duplicates.functions.forEach(dup => {
+-        console.log(`\n関数名: ${dup.functionName}`);
+-        console.log('検出場所:');
++        console.log('\n' + __('functionName', dup.functionName));
++        console.log(__('locations'));
+         dup.occurrences.forEach(loc => {
+-          console.log(`- ${loc.file} (名前: "${loc.name}")`);
++          console.log(__('locationFormat', loc.file, loc.name));
+         });
+       });
+     }
+ 
+-    // モジュールの重複
+-    console.log('\n類似したモジュール:');
++    // Module duplicates
++    console.log('\n' + __('similarModules'));
+     if (duplicates.modules.length === 0) {
+-      console.log('類似するモジュールは見つかりませんでした。');
++      console.log(__('noSimilarModules'));
+     } else {
+       duplicates.modules.forEach(dup => {
+-        console.log(`\n類似度: ${dup.similarity}`);
+-        console.log('ファイル:');
+-        dup.files.forEach(file => console.log(`- ${file}`));
++        console.log('\n' + __('similarityFormat', dup.similarity));
++        console.log(__('files'));
++        dup.files.forEach(file => console.log(__('fileFormat', file)));
+       });
+     }
+ 
+-    // リソースの重複
+-    console.log('\n重複しているリソース:');
++    // Resource duplicates
++    console.log('\n' + __('duplicateResources'));
+     if (duplicates.resources.length === 0) {
+-      console.log('重複するリソースは見つかりませんでした。');
++      console.log(__('noDuplicateResources'));
+     } else {
+       duplicates.resources.forEach(dup => {
+-        console.log(`\n値: ${dup.value}`);
+-        console.log('検出場所:');
++        console.log('\n' + __('valueFormat', dup.value));
++        console.log(__('resourceLocations'));
+         dup.occurrences.forEach(loc => {
+-          console.log(`- ${loc.file} (キー: "${loc.key}")`);
++          console.log(__('resourceLocationFormat', loc.file, loc.key));
+         });
+-      });
+     }
+   })
+   .catch(err => {
+-- 
+2.34.1
+
