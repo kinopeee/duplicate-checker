@@ -25,20 +25,20 @@ const setupTestFiles = () => {
 
   // Create test files with duplicate functions
   const file1Content = `
-    function test1() {
-      const a = 1;
-      const b = 2;
-      return a + b;
-    }
-  `;
+function test1() {
+  const a = 1;
+  const b = 2;
+  return a + b;
+}
+`;
 
   const file2Content = `
-    function test2() {
-      const a = 1;
-      const b = 2;
-      return a + b;
-    }
-  `;
+function test2() {
+  const a = 1;
+  const b = 2;
+  return a + b;
+}
+`;
 
   fs.writeFileSync(path.join(testDir, 'file1.js'), file1Content);
   fs.writeFileSync(path.join(testDir, 'file2.js'), file2Content);
@@ -55,10 +55,12 @@ const cleanupTestFiles = (testDir) => {
 // Test language configuration priority
 const testLanguageConfiguration = () => {
   // Test environment variable priority
-  process.env.DUPLICATE_CHECKER_LANG = 'en';
-  fs.writeFileSync('duplicate-checker.config.json', JSON.stringify({ language: 'ja' }));
-  const checker1 = new DuplicateChecker('.');
-  assert.strictEqual(process.env.DUPLICATE_CHECKER_LANG, 'en', 'Environment variable should take priority');
+  const originalConfig = fs.readFileSync('duplicate-checker.config.json', 'utf-8');
+  try {
+    process.env.DUPLICATE_CHECKER_LANG = 'en';
+    fs.writeFileSync('duplicate-checker.config.json', JSON.stringify({ language: 'ja' }));
+    const checker1 = new DuplicateChecker('.');
+    assert.strictEqual(process.env.DUPLICATE_CHECKER_LANG, 'en', 'Environment variable should take priority');
 
   // Test config file priority
   delete process.env.DUPLICATE_CHECKER_LANG;
@@ -72,6 +74,10 @@ const testLanguageConfiguration = () => {
   assert.strictEqual(process.env.DUPLICATE_CHECKER_LANG || 'ja', 'ja', 'Should default to ja');
 
   console.log('✓ Language configuration priority tests passed');
+  } finally {
+    // Restore original config
+    fs.writeFileSync('duplicate-checker.config.json', originalConfig);
+  }
 };
 
 // Test duplicate detection in both languages
@@ -84,11 +90,11 @@ const runTests = async () => {
     const checker = new DuplicateChecker(testDir);
     
     try {
-      // Test language configuration
-      testLanguageConfiguration();
-
       // Test duplicate detection
       const results = await checker.analyzeDuplicates();
+
+      // Test language configuration after duplicate detection
+      testLanguageConfiguration();
       
       // Structure verification
       assert(Array.isArray(results.functions), 'functions should be an array');
