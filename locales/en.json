@@ -1,0 +1,17 @@
+{
+  "duplicateFunctions": "Duplicate functions:",
+  "noDuplicateFunctions": "No duplicate functions found.",
+  "functionName": "Function name: %s",
+  "locations": "Locations:",
+  "locationFormat": "- %s (name: \"%s\")",
+  "similarModules": "Similar modules:",
+  "noSimilarModules": "No similar modules found.",
+  "similarityFormat": "Similarity: %s",
+  "files": "Files:",
+  "fileFormat": "- %s",
+  "duplicateResources": "Duplicate resources:",
+  "noDuplicateResources": "No duplicate resources found.",
+  "valueFormat": "Value: %s",
+  "resourceLocations": "Locations:",
+  "resourceLocationFormat": "- %s (key: \"%s\")"
+}
