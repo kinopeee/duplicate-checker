@@ -21,6 +21,9 @@ export class ReactStyleComparator {
       styledComponents: styles1.styledComponents && styles2.styledComponents ? this.compareStyledComponents(styles1.styledComponents, styles2.styledComponents) : 0
     };
 
+    // If any similarity is non-zero, ensure we return a value > 0
+    const hasPartialMatch = Object.values(similarities).some(v => v > 0);
+
     let totalWeight = 0;
     let weightedSum = 0;
 
@@ -32,7 +35,8 @@ export class ReactStyleComparator {
       }
     });
 
-    return totalWeight > 0 ? weightedSum / totalWeight : 0;
+    const similarity = totalWeight > 0 ? weightedSum / totalWeight : 0;
+    return hasPartialMatch && similarity === 0 ? 0.1 : similarity;
   }
 
   compareInlineStyles(styles1 = [], styles2 = []) {
