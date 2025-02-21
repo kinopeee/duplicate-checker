@@ -400,7 +400,7 @@ class DuplicateChecker {
         }))
       })),
       modules: Array.from(this.duplicates.modules.values()).map(dup => ({
-        similarity: dup.similarity,
+        similarity: (dup.similarity * 100).toFixed(1) + '%',
         files: dup.files.map(file => path.relative(this.projectPath, file))
       })),
       resources: Array.from(this.duplicates.resources.values()).map(dup => ({
