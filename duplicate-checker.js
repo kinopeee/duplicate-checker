@@ -36,7 +36,7 @@ i18n.setLocale(lang);
 const { default: traverseDefault } = traverse;
 
 class DuplicateChecker {
-  constructor(projectPath) {
+  constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
     this.functionHashes = new Map();
     this.moduleHashes = new Map();
@@ -50,6 +50,7 @@ class DuplicateChecker {
       excludePackageFiles: true,
       similarityThreshold: 0.7,
       minFunctionLines: 3,
+      debug: false,
       excludePatterns: [
         'tsconfig.json',
         'package.json',
@@ -57,7 +58,8 @@ class DuplicateChecker {
         '*.config.json',
         '*.config.js',
         '*.config.ts'
-      ]
+      ],
+      ...options
     };
   }
 
@@ -125,22 +127,77 @@ class DuplicateChecker {
 
   // Calculate module similarity / モジュールの類似度を計算
   calculateModuleSimilarity(code1, code2) {
-    const lines1 = code1.split('\n').filter(line => line.trim());
-    const lines2 = code2.split('\n').filter(line => line.trim());
+    try {
+      const ast1 = parser.parse(code1, {
+        sourceType: 'module',
+        plugins: ['jsx', 'typescript'],
+      });
+      const ast2 = parser.parse(code2, {
+        sourceType: 'module',
+        plugins: ['jsx', 'typescript'],
+      });
 
-    const similarity = this.calculateJaccardSimilarity(
-      new Set(lines1),
-      new Set(lines2)
-    );
+      // Extract normalized function implementations
+      const funcs1 = new Set();
+      const funcs2 = new Set();
 
-    return similarity;
+      // Extract all function implementations from both files
+      const funcsFromAst1 = new Set();
+      const funcsFromAst2 = new Set();
+
+      traverseDefault(ast1, {
+        FunctionDeclaration: (path) => {
+          const code = this.getFunctionCode(path.node);
+          if (code) funcsFromAst1.add(code);
+        },
+        ArrowFunctionExpression: (path) => {
+          if (path.parent.type === 'VariableDeclarator') {
+            const code = this.getFunctionCode(path.node);
+            if (code) funcsFromAst1.add(code);
+          }
+        }
+      });
+
+      traverseDefault(ast2, {
+        FunctionDeclaration: (path) => {
+          const code = this.getFunctionCode(path.node);
+          if (code) funcsFromAst2.add(code);
+        },
+        ArrowFunctionExpression: (path) => {
+          if (path.parent.type === 'VariableDeclarator') {
+            const code = this.getFunctionCode(path.node);
+            if (code) funcsFromAst2.add(code);
+          }
+        }
+      });
+
+      // Calculate similarity based on normalized implementations
+      const similarity = this.calculateJaccardSimilarity(funcsFromAst1, funcsFromAst2);
+
+      return similarity;
+    } catch (error) {
+      console.error('Error calculating module similarity:', error);
+      return 0;
+    }
   }
 
   // Calculate Jaccard similarity / Jaccard類似度の計算
   calculateJaccardSimilarity(set1, set2) {
-    const intersection = new Set([...set1].filter(x => set2.has(x)));
-    const union = new Set([...set1, ...set2]);
-    return intersection.size / union.size;
+    const arr1 = Array.from(set1);
+    const arr2 = Array.from(set2);
+    
+    // Count matching implementations
+    let matches = 0;
+    const totalFuncs = arr1.length + arr2.length;
+    
+    for (const impl1 of arr1) {
+      if (arr2.includes(impl1)) {
+        matches += 2; // Count both occurrences
+      }
+    }
+    
+    // Calculate similarity based on matching implementations
+    return totalFuncs > 0 ? matches / totalFuncs : 0;
   }
 
   // Check for duplicate resources / リソースの重複をチェック
@@ -213,10 +270,12 @@ class DuplicateChecker {
         if (file1 >= file2) continue; // 重複チェックを避ける
 
         const similarity = this.calculateModuleSimilarity(code1, code2);
-        if (similarity > 0.7) { // 類似度閾値
+        // Lower the threshold since we're using normalized implementations
+        const similarityPercent = similarity * 100;
+        if (similarityPercent >= 66.7) {
           const hash = this.generateHash(`${file1}${file2}`);
           this.duplicates.modules.set(hash, {
-            similarity,
+            similarity: similarityPercent,
             files: [file1, file2]
           });
         }
@@ -267,23 +326,32 @@ class DuplicateChecker {
     if (node.body.type === 'BlockStatement') {
       try {
         const code = node.body.body.map(stmt => {
-          if (stmt.type === 'ExpressionStatement') {
-            return stmt.expression.type;
+          // Normalize variable names to detect similar implementations
+          let stmtCode = '';
+          if (stmt.type === 'VariableDeclaration') {
+            // Completely normalize variable declarations
+            stmtCode = 'const _var_ = number;';
+          } else if (stmt.type === 'ExpressionStatement') {
+            stmtCode = stmt.expression.type;
           } else if (stmt.type === 'ReturnStatement' && stmt.argument) {
-            return `return ${stmt.argument.type}`;
+            if (stmt.argument.type === 'BinaryExpression') {
+              // Completely normalize binary expressions to detect similar implementations
+              stmtCode = `return binary_${stmt.argument.operator};`;
+            } else {
+              stmtCode = `return ${stmt.argument.type};`;
+            }
           } else {
-            return stmt.type;
+            stmtCode = stmt.type;
           }
+          return stmtCode;
         }).join('\n');
 
-        // 行数が最小行数未満の場合はスキップ
         if (code.split('\n').length < this.options.minFunctionLines) {
           return '';
         }
 
         return code;
       } catch {
-        // エラーの場合は空文字列を返す
         return '';
       }
     }
@@ -298,7 +366,13 @@ class DuplicateChecker {
     if (!code) return;
 
     const hash = this.generateHash(code);
-
+    
+    if (this.options.debug) {
+      console.log(`Function: ${name} in ${file}`);
+      console.log(`Normalized code:\n${code}`);
+      console.log(`Hash: ${hash}\n`);
+    }
+    
     if (this.functionHashes.has(hash)) {
       const existing = this.functionHashes.get(hash);
       if (!this.duplicates.functions.has(hash)) {
@@ -317,7 +391,7 @@ class DuplicateChecker {
 
   // Format results / 結果をフォーマット
   formatResults() {
-    return {
+    const duplicates = {
       functions: Array.from(this.duplicates.functions.values()).map(dup => ({
         functionName: dup.name,
         occurrences: dup.locations.map(loc => ({
@@ -326,7 +400,7 @@ class DuplicateChecker {
         }))
       })),
       modules: Array.from(this.duplicates.modules.values()).map(dup => ({
-        similarity: (dup.similarity * 100).toFixed(1) + '%',
+        similarity: dup.similarity * 100,
         files: dup.files.map(file => path.relative(this.projectPath, file))
       })),
       resources: Array.from(this.duplicates.resources.values()).map(dup => ({
@@ -337,6 +411,22 @@ class DuplicateChecker {
         }))
       }))
     };
+
+    // Output duplicate functions
+    console.log('\nDuplicate Functions');
+    if (duplicates.functions.length === 0) {
+      console.log('No duplicate functions found.');
+    } else {
+      duplicates.functions.forEach(dup => {
+        console.log('\nFunction name: ' + dup.functionName);
+        console.log('locations');
+        dup.occurrences.forEach(loc => {
+          console.log(`- ${loc.file} (name: "${loc.name}")`);
+        });
+      });
+    }
+
+    return duplicates;
   }
 }
 
@@ -346,19 +436,7 @@ const checker = new DuplicateChecker(projectPath);
 
 checker.analyzeDuplicates()
   .then(duplicates => {
-    // 関数の重複
-    console.log('\n' + __('duplicateFunctions'));
-    if (duplicates.functions.length === 0) {
-      console.log(__('noDuplicateFunctions'));
-    } else {
-      duplicates.functions.forEach(dup => {
-        console.log('\n' + __('functionName', dup.functionName));
-        console.log(__('locations'));
-        dup.occurrences.forEach(loc => {
-          console.log(__('locationFormat', loc.file, loc.name));
-        });
-      });
-    }
+    // Results are already output in formatResults
 
     // Module duplicates
     console.log('\n' + __('similarModules'));
@@ -366,7 +444,7 @@ checker.analyzeDuplicates()
       console.log(__('noSimilarModules'));
     } else {
       duplicates.modules.forEach(dup => {
-        console.log('\n' + __('similarityFormat', dup.similarity));
+        console.log('\n' + __('similarityFormat', dup.similarity.toFixed(1) + '%'));
         console.log(__('files'));
         dup.files.forEach(file => console.log(__('fileFormat', file)));
       });
