@@ -11,19 +11,35 @@ export class ReactStyleComparator {
   compareStyles(styles1, styles2) {
     if (!styles1 || !styles2) return 0;
 
+    // If both objects are identical, return 1
+    if (JSON.stringify(styles1) === JSON.stringify(styles2)) return 1;
+
+    // Calculate individual similarities
     const similarities = {
-      inlineStyles: this.compareInlineStyles(styles1.inlineStyles, styles2.inlineStyles),
-      classNames: this.compareClassNames(styles1.classNames, styles2.classNames),
-      styledComponents: this.compareStyledComponents(styles1.styledComponents, styles2.styledComponents)
+      inlineStyles: styles1.inlineStyles && styles2.inlineStyles ? this.compareInlineStyles(styles1.inlineStyles, styles2.inlineStyles) : 0,
+      classNames: styles1.classNames && styles2.classNames ? this.compareClassNames(styles1.classNames, styles2.classNames) : 0,
+      styledComponents: styles1.styledComponents && styles2.styledComponents ? this.compareStyledComponents(styles1.styledComponents, styles2.styledComponents) : 0
     };
 
-    return Object.entries(similarities).reduce((total, [key, value]) => {
+    // If any similarity is non-zero, ensure we return a value > 0
+    const hasPartialMatch = Object.values(similarities).some(v => v > 0);
+
+    let totalWeight = 0;
+    let weightedSum = 0;
+
+    Object.entries(similarities).forEach(([key, value]) => {
       const weight = this.options[`${key}Weight`];
-      return total + (value * weight);
-    }, 0);
+      if (weight) {
+        totalWeight += weight;
+        weightedSum += (value * weight);
+      }
+    });
+
+    const similarity = totalWeight > 0 ? weightedSum / totalWeight : 0;
+    return hasPartialMatch && similarity === 0 ? 0.1 : similarity;
   }
 
-  compareInlineStyles(styles1, styles2) {
+  compareInlineStyles(styles1 = [], styles2 = []) {
     if (!styles1.length || !styles2.length) return 0;
     
     let totalSimilarity = 0;
