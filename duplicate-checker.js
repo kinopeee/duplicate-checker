@@ -272,10 +272,10 @@ class DuplicateChecker {
         const similarity = this.calculateModuleSimilarity(code1, code2);
         // Lower the threshold since we're using normalized implementations
         const similarityPercent = similarity * 100;
-        if (similarityPercent >= 66) {
+        if (similarityPercent >= 66.7) {
           const hash = this.generateHash(`${file1}${file2}`);
           this.duplicates.modules.set(hash, {
-            similarity: similarityPercent.toFixed(1),
+            similarity: similarityPercent,
             files: [file1, file2]
           });
         }
@@ -400,7 +400,7 @@ class DuplicateChecker {
         }))
       })),
       modules: Array.from(this.duplicates.modules.values()).map(dup => ({
-        similarity: (dup.similarity * 100).toFixed(1) + '%',
+        similarity: dup.similarity * 100,
         files: dup.files.map(file => path.relative(this.projectPath, file))
       })),
       resources: Array.from(this.duplicates.resources.values()).map(dup => ({
@@ -444,7 +444,7 @@ checker.analyzeDuplicates()
       console.log(__('noSimilarModules'));
     } else {
       duplicates.modules.forEach(dup => {
-        console.log('\n' + __('similarityFormat', dup.similarity));
+        console.log('\n' + __('similarityFormat', dup.similarity.toFixed(1) + '%'));
         console.log(__('files'));
         dup.files.forEach(file => console.log(__('fileFormat', file)));
       });

@@ -140,8 +140,8 @@ const runTests = async () => {
       
       // Module similarity should be based on function implementation similarity
       if (results.modules.length > 0) {
-        const similarity = parseFloat(results.modules[0].similarity);
-        assert(similarity >= 66, `Module similarity should be at least 66% (got ${similarity}%)`);
+        const similarity = parseFloat(results.modules[0].similarity.toFixed(1));
+        assert(similarity === 66.7, `Module similarity should be 66.7% (got ${similarity}%)`);
         assert(results.modules[0].files.length === 2, 'Should have two similar files');
         assert(results.modules[0].files.every(f => f.endsWith('.js')), 'Files should be JavaScript files');
       }
