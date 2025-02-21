@@ -6,7 +6,9 @@ import { jest } from '@jest/globals';
 jest.mock('./src/react/index.js', () => ({
   ReactDuplicateDetector: class MockReactDuplicateDetector {
     constructor() {}
-    detectDuplicates() { return []; }
+    detectDuplicates() { 
+      return Promise.resolve([]); 
+    }
   }
 }));
 
