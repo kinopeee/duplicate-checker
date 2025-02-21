@@ -12,15 +12,23 @@ export class ReactStyleComparator {
     if (!styles1 || !styles2) return 0;
 
     const similarities = {
-      inlineStyles: this.compareInlineStyles(styles1.inlineStyles, styles2.inlineStyles),
-      classNames: this.compareClassNames(styles1.classNames, styles2.classNames),
-      styledComponents: this.compareStyledComponents(styles1.styledComponents, styles2.styledComponents)
+      inlineStyles: this.compareInlineStyles(styles1.inlineStyles || [], styles2.inlineStyles || []),
+      classNames: this.compareClassNames(styles1.classNames || [], styles2.classNames || []),
+      styledComponents: this.compareStyledComponents(styles1.styledComponents || [], styles2.styledComponents || [])
     };
 
-    return Object.entries(similarities).reduce((total, [key, value]) => {
+    let totalWeight = 0;
+    let weightedSum = 0;
+
+    Object.entries(similarities).forEach(([key, value]) => {
       const weight = this.options[`${key}Weight`];
-      return total + (value * weight);
-    }, 0);
+      if (weight) {
+        totalWeight += weight;
+        weightedSum += (value * weight);
+      }
+    });
+
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
   }
 
   compareInlineStyles(styles1 = [], styles2 = []) {
