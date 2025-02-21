@@ -38,6 +38,7 @@ export class ReactHooksComparator {
   }
 
   compareStateHooks(hooks1 = [], hooks2 = []) {
+    if (!hooks1.length && !hooks2.length) return 1;
     if (!hooks1.length || !hooks2.length) return 0;
 
     let totalSimilarity = 0;
@@ -79,6 +80,7 @@ export class ReactHooksComparator {
   }
 
   compareEffectHooks(hooks1 = [], hooks2 = []) {
+    if (!hooks1.length && !hooks2.length) return 1;
     if (!hooks1.length || !hooks2.length) return 0;
 
     let totalSimilarity = 0;
@@ -120,6 +122,7 @@ export class ReactHooksComparator {
   }
 
   compareCustomHooks(hooks1 = [], hooks2 = []) {
+    if (!hooks1.length && !hooks2.length) return 1;
     if (!hooks1.length || !hooks2.length) return 0;
 
     let totalSimilarity = 0;
