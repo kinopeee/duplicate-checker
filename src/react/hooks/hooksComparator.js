@@ -17,10 +17,16 @@ export class ReactHooksComparator {
       customHooks: this.compareCustomHooks(hooks1.customHooks, hooks2.customHooks)
     };
 
-    return Object.entries(similarities).reduce((total, [key, value]) => {
-      const weight = this.options[`${key}Weight`];
-      return total + (value * weight);
-    }, 0);
+    let totalWeight = 0;
+    let weightedSum = 0;
+
+    Object.entries(similarities).forEach(([key, value]) => {
+      const weight = this.options[`${key}Weight`] || 0;
+      totalWeight += weight;
+      weightedSum += (value * weight);
+    });
+
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
   }
 
   compareStateHooks(hooks1 = [], hooks2 = []) {
