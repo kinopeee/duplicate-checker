@@ -59,6 +59,18 @@ class DuplicateChecker {
         '*.config.js',
         '*.config.ts'
       ],
+      resourceComparison: {
+        enableStringComparison: true,
+        enableNumberComparison: true,
+        enableArrayOrderCheck: true,
+        maxDepth: 5,
+        stringThreshold: 0.8,
+        numberThreshold: 0.1,
+        arrayThreshold: 0.7,
+        structureWeight: 0.4,
+        valueWeight: 0.6,
+        maxFileSize: 1048576
+      },
       ...options
     };
   }
