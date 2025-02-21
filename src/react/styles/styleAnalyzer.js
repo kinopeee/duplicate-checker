@@ -60,13 +60,13 @@ export class ReactStyleAnalyzer {
     const styledComponents = [];
     if (t.isVariableDeclaration(node)) {
       node.declarations.forEach(decl => {
-        if (t.isCallExpression(decl.init) && 
-            t.isMemberExpression(decl.init.callee) &&
-            decl.init.callee.object.name === 'styled') {
+        if (t.isTaggedTemplateExpression(decl.init) && 
+            t.isMemberExpression(decl.init.tag) &&
+            decl.init.tag.object.name === 'styled') {
           styledComponents.push({
             name: decl.id.name,
-            baseComponent: decl.init.callee.property.name,
-            styles: this.extractStyledComponentStyles(decl.init.arguments)
+            baseComponent: decl.init.tag.property.name,
+            styles: [decl.init.quasi.quasis.map(quasi => quasi.value.raw).join('')]
           });
         }
       });

@@ -23,7 +23,7 @@ export class ReactStyleComparator {
     }, 0);
   }
 
-  compareInlineStyles(styles1, styles2) {
+  compareInlineStyles(styles1 = [], styles2 = []) {
     if (!styles1.length || !styles2.length) return 0;
     
     let totalSimilarity = 0;
