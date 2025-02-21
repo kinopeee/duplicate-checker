@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import DuplicateChecker from '../duplicate-checker.js';
 
-async function generateLargeProject(fileCount = 5000) {
+async function generateLargeProject(fileCount = 1000) { // Start with smaller count for testing
   const testDir = path.join(process.cwd(), 'benchmark/test-project');
   if (!fs.existsSync(testDir)) {
     fs.mkdirSync(testDir, { recursive: true });
@@ -70,8 +70,11 @@ async function runBenchmark() {
   });
 
   console.time('Duplicate analysis');
+  console.log('Starting duplicate analysis...');
   const results = await checker.analyzeDuplicates();
   console.timeEnd('Duplicate analysis');
+  
+  console.log('Analysis complete. Processing results...');
 
   const peakMemory = process.memoryUsage();
   console.log('Peak memory usage:', {
