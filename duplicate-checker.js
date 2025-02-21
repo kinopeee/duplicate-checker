@@ -436,8 +436,17 @@ class DuplicateChecker {
   async checkModuleDuplicates(files) {
     console.log('Starting module similarity analysis...');
     const modules = new Map();
+    let processedModules = 0;
+    const totalModules = files.length;
 
-    for (const file of files) {
+    // Process files in chunks to avoid memory issues
+    const chunkSize = 100;
+    const chunks = this.chunkArray(files, chunkSize);
+
+    for (const chunk of chunks) {
+      console.log(`Processing modules ${processedModules + 1} to ${Math.min(processedModules + chunkSize, totalModules)}/${totalModules}...`);
+      
+      for (const file of chunk) {
       const code = await fs.promises.readFile(file, 'utf-8');
       modules.set(file, code);
     }
