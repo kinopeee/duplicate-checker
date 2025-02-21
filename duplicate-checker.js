@@ -186,7 +186,7 @@ class DuplicateChecker {
 
   // Check for ignored directories / 無視するディレクトリの判定
   isIgnoredDirectory(dirName) {
-    const ignoreDirs = ['node_modules', '.next', 'build', 'dist', '.git'];
+    const ignoreDirs = ['node_modules', '.next', 'build', 'dist', '.git', 'coverage'];
     return ignoreDirs.includes(dirName);
   }
 
@@ -296,32 +296,80 @@ class DuplicateChecker {
     console.log('Starting resource duplicate analysis...');
     // Reset resource hashes for each run
     this.resourceHashes = new Map();
+    this.duplicates.resources = new Map();
     
     for (const file of files) {
       try {
-        const content = await fs.promises.readFile(file, 'utf-8');
-        let resourceData;
+        if (!fs.existsSync(file)) {
+          console.warn(new DuplicateCheckerError(
+            ErrorCodes.FILE_NOT_FOUND,
+            i18n.__('errors.fileNotFound', { file }),
+            { file }
+          ));
+          continue;
+        }
 
-        if (file.endsWith('.json')) {
-          resourceData = JSON.parse(content);
-        } else if (file.endsWith('.yml') || file.endsWith('.yaml')) {
-          resourceData = yaml.load(content);
+        let content;
+        try {
+          content = await fs.promises.readFile(file, 'utf-8');
+        } catch (error) {
+          // Handle file read errors (e.g., permission denied)
+          console.warn(new DuplicateCheckerError(
+            ErrorCodes.FILE_NOT_FOUND,
+            i18n.__('errors.fileNotFound', { file }),
+            { file, originalError: error }
+          ));
+          continue;
+        }
+
+        let resourceData;
+        try {
+          if (file.endsWith('.json')) {
+            resourceData = JSON.parse(content);
+          } else if (file.endsWith('.yml') || file.endsWith('.yaml')) {
+            resourceData = yaml.load(content);
+          }
+        } catch (error) {
+          // Handle parse errors
+          console.warn(new DuplicateCheckerError(
+            ErrorCodes.PARSE_ERROR,
+            i18n.__('errors.resourceParse', { file, error: error.message }),
+            { file, originalError: error }
+          ));
+          continue;
         }
 
         if (resourceData) {
-          // リソースの各キーごとに重複チェック
+          // Check the entire object as a potential duplicate
+          const valueHash = this.generateHash(JSON.stringify(resourceData));
+          
+          // Compare with existing resources
+          for (const [existingHash, existingData] of this.resourceHashes.entries()) {
+            const similarity = this.calculateObjectSimilarity(resourceData, existingData.value);
+            if (similarity >= this.options.resourceComparison.stringThreshold) {
+              const duplicateKey = this.generateHash(`${typeof resourceData}_${valueHash}_${existingHash}`);
+              this.recordDuplicate(duplicateKey, resourceData, file, '', similarity);
+              this.recordDuplicate(duplicateKey, existingData.value, existingData.file, '', similarity);
+            }
+          }
+
+          // Store current resource
+          this.resourceHashes.set(valueHash, {
+            value: resourceData,
+            file,
+            key: ''
+          });
+
+          // Then check individual keys
           this.checkResourceKeys(resourceData, '', file);
         }
       } catch (error) {
+        // Handle any other unexpected errors
         console.warn(new DuplicateCheckerError(
           ErrorCodes.PARSE_ERROR,
           i18n.__('errors.resourceParse', { file, error: error.message }),
-          {
-            file,
-            originalError: error
-          }
+          { file, originalError: error }
         ));
-        // Continue with next file
         continue;
       }
     }
@@ -331,74 +379,56 @@ class DuplicateChecker {
   checkResourceKeys(obj, prefix = '', file, depth = 0) {
     if (!obj || typeof obj !== 'object' || depth > this.options.resourceComparison.maxDepth) return;
 
+    // Skip if array - we handle arrays separately
+    if (Array.isArray(obj)) return;
+
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${key}` : key;
 
-      // Handle all value types uniformly
-      const valueType = typeof value;
-
+      // Generate a consistent hash for the value
+      const valueHash = this.generateHash(JSON.stringify(value));
+      
       // Compare with existing values first
-      for (const [existingKey, existingData] of this.resourceHashes.entries()) {
+      for (const [existingHash, existingData] of this.resourceHashes.entries()) {
         const existingValue = existingData.value;
         let similarity = 0;
 
-        // Calculate similarity based on type
-        if (typeof value === 'string' && typeof existingValue === 'string' && this.options.resourceComparison.enableStringComparison) {
-          similarity = this.calculateStringSimilarity(value, existingValue);
-        } else if (Array.isArray(value) && Array.isArray(existingValue)) {
-          similarity = this.calculateArraySimilarity(value, existingValue);
-        } else if (typeof value === 'object' && typeof existingValue === 'object' && !Array.isArray(value)) {
-          similarity = this.calculateObjectSimilarity(value, existingValue);
-        } else {
-          // Handle numeric strings and numbers uniformly
+        // Only compare values of the same type
+        if (typeof value === typeof existingValue) {
+          if (typeof value === 'string' && this.options.resourceComparison.enableStringComparison) {
+            similarity = this.calculateStringSimilarity(value, existingValue);
+          } else if (Array.isArray(value) && this.options.resourceComparison.enableArrayOrderCheck) {
+            similarity = this.calculateArraySimilarity(value, existingValue);
+          } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            similarity = this.calculateObjectSimilarity(value, existingValue);
+          } else if (typeof value === 'number' && this.options.resourceComparison.enableNumberComparison) {
+            similarity = this.calculateNumberSimilarity(value, existingValue);
+          }
+        } else if (this.options.resourceComparison.enableNumberComparison) {
+          // Handle numeric strings
           const num1 = Number(value);
           const num2 = Number(existingValue);
-          if (!isNaN(num1) && !isNaN(num2) && this.options.resourceComparison.enableNumberComparison) {
+          if (!isNaN(num1) && !isNaN(num2)) {
             similarity = this.calculateNumberSimilarity(num1, num2);
-            // Debug logging for number similarity
-            console.log('Checking numbers:', { value: num1, existing: num2, similarity });
-            if (similarity < 0) similarity = 0; // Ensure non-negative similarity
-          } else {
-            similarity = value === existingValue ? 1 : 0;
           }
         }
 
-        // Get appropriate threshold based on type
+        // Get threshold based on type
         const threshold = 
           Array.isArray(value) ? this.options.resourceComparison.arrayThreshold :
           typeof value === 'string' ? this.options.resourceComparison.stringThreshold :
-          typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value))) ? 
+          typeof value === 'number' || !isNaN(Number(value)) ? 
             this.options.resourceComparison.numberThreshold : 0.8;
 
-        // Debug logging for threshold check
-        console.log('Threshold check:', { similarity, threshold, passes: similarity >= threshold });
-
         if (similarity >= threshold) {
-          let duplicateKey;
-          if (typeof value === 'string' && typeof existingValue === 'string') {
-            // For strings, use sorted characters to ensure consistent hash
-            const [str1, str2] = [value, existingValue].sort();
-            duplicateKey = this.generateHash(`string_${str1}_${str2}`);
-          } else if (Array.isArray(value) && Array.isArray(existingValue)) {
-            // For arrays, sort elements for consistent hash
-            duplicateKey = this.generateHash(`array_${JSON.stringify([...value].sort())}`);
-          } else if (!isNaN(Number(value)) && !isNaN(Number(existingValue))) {
-            // For numbers, use min/max for consistent hash
-            const num1 = Number(value);
-            const num2 = Number(existingValue);
-            duplicateKey = this.generateHash(`number_${Math.min(num1, num2)}_${Math.max(num1, num2)}`);
-          } else {
-            // For other types, use combined hash
-            duplicateKey = this.generateHash(`${typeof value}_${JSON.stringify(value)}_${JSON.stringify(existingValue)}`);
-          }
+          const duplicateKey = this.generateHash(`${typeof value}_${valueHash}_${existingHash}`);
           this.recordDuplicate(duplicateKey, value, file, fullKey, similarity);
           this.recordDuplicate(duplicateKey, existingValue, existingData.file, existingData.key, similarity);
         }
       }
 
-      // Store current value with metadata
-      const hash = this.generateHash(JSON.stringify(value));
-      this.resourceHashes.set(hash, {
+      // Store current value after comparison
+      this.resourceHashes.set(valueHash, {
         value,
         file,
         key: fullKey
@@ -428,8 +458,7 @@ class DuplicateChecker {
         }
       }
     }
-    // Debug logging
-    console.log('Recording duplicate:', { hash, value, similarity, file, key });
+
   }
 
   // Check for duplicate modules / モジュールの重複をチェック
@@ -447,17 +476,38 @@ class DuplicateChecker {
       console.log(`Processing modules ${processedModules + 1} to ${Math.min(processedModules + chunkSize, totalModules)}/${totalModules}...`);
       
       for (const file of chunk) {
-      const code = await fs.promises.readFile(file, 'utf-8');
-      modules.set(file, code);
+        processedModules++;
+        const code = await fs.promises.readFile(file, 'utf-8');
+        modules.set(file, code);
+      }
     }
 
+    console.log('Starting module comparisons...');
     // モジュール間の類似度を計算
-    for (const [file1, code1] of modules) {
-      for (const [file2, code2] of modules) {
-        if (file1 >= file2) continue; // 重複チェックを避ける
+    const moduleEntries = Array.from(modules.entries());
+    let comparedPairs = 0;
+    const totalPairs = (modules.size * (modules.size - 1)) / 2;
+
+    for (let i = 0; i < moduleEntries.length; i++) {
+      const [file1, code1] = moduleEntries[i];
+      for (let j = i + 1; j < moduleEntries.length; j++) {
+        const [file2, code2] = moduleEntries[j];
+        
+        comparedPairs++;
+        if (comparedPairs % 1000 === 0) {
+          console.log(`Compared ${comparedPairs}/${totalPairs} module pairs...`);
+          // Check memory usage periodically
+          const memoryUsage = process.memoryUsage().heapUsed;
+          if (memoryUsage > this.options.memoryLimit) {
+            throw new DuplicateCheckerError(
+              ErrorCodes.MEMORY_LIMIT,
+              i18n.__('errors.memoryLimit', { limit: Math.round(this.options.memoryLimit / 1024 / 1024) }),
+              { memoryUsage, limit: this.options.memoryLimit }
+            );
+          }
+        }
 
         const similarity = this.calculateModuleSimilarity(code1, code2);
-        // Lower the threshold since we're using normalized implementations
         const similarityPercent = similarity * 100;
         if (similarityPercent >= 66.7) {
           const hash = this.generateHash(`${file1}${file2}`);
@@ -468,6 +518,7 @@ class DuplicateChecker {
         }
       }
     }
+    console.log(`Module comparison complete. Analyzed ${comparedPairs} pairs.`);
   }
 
   // Analyze files to detect duplicate functions / ファイルを解析して関数の重複を検出
@@ -550,17 +601,21 @@ class DuplicateChecker {
       
       return results;
     } catch (error) {
-      if (error instanceof DuplicateCheckerError) {
+      // Re-throw specific error types that should be propagated
+      if (error instanceof DuplicateCheckerError && 
+          [ErrorCodes.MEMORY_LIMIT, ErrorCodes.FILE_NOT_FOUND, ErrorCodes.INVALID_CONFIG].includes(error.code)) {
         throw error;
       }
-      throw new DuplicateCheckerError(
+      // For other errors, log and continue
+      console.warn(new DuplicateCheckerError(
         'E002',
         i18n.__('errors.fileAnalysis'),
         {
           file: error.file || null,
           originalError: error
         }
-      );
+      ));
+      return this.formatResults();
     }
   }
 
@@ -655,9 +710,7 @@ class DuplicateChecker {
   calculateStringSimilarity(str1, str2) {
     if (str1 === str2) return 1;
     const distance = this.calculateLevenshteinDistance(str1, str2);
-    const similarity = 1 - (distance / Math.max(str1.length, str2.length));
-    console.log('String similarity:', { str1, str2, distance, similarity });
-    return similarity;
+    return 1 - (distance / Math.max(str1.length, str2.length));
   }
 
   calculateNumberSimilarity(num1, num2) {
@@ -675,8 +728,7 @@ class DuplicateChecker {
     const avg = (num1 + num2) / 2;
     const relativeDiff = diff / avg;
     
-    // Debug logging
-    console.log('Number similarity:', { num1, num2, diff, avg, relativeDiff, similarity: 1 - relativeDiff });
+
     
     return Math.max(0, 1 - relativeDiff);
   }
@@ -738,24 +790,64 @@ class DuplicateChecker {
   }
 
   calculateObjectSimilarity(obj1, obj2, depth = 0) {
+    // Handle special cases first
+    if (obj1 === obj2) return obj1 === null ? 0 : 1;
+    if (!obj1 || !obj2) return 0;
+    if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return 0;
+    if (Array.isArray(obj1) !== Array.isArray(obj2)) return 0;
+    if (Array.isArray(obj1)) return this.calculateArraySimilarity(obj1, obj2);
+    
+    // Check depth limit
     if (depth >= this.options.resourceComparison.maxDepth) return 0;
     
     const keys1 = Object.keys(obj1);
     const keys2 = Object.keys(obj2);
     
+    // Handle empty objects
+    if (keys1.length === 0 && keys2.length === 0) return 1;
+    if (keys1.length === 0 || keys2.length === 0) return 0;
+    
     // Structure similarity (40%)
-    const structureSimilarity = 
-      keys1.filter(k => keys2.includes(k)).length / 
-      Math.max(keys1.length, keys2.length);
+    const commonKeys = keys1.filter(k => keys2.includes(k));
+    const structureSimilarity = commonKeys.length / Math.max(keys1.length, keys2.length);
     
     // Value similarity (60%)
-    const commonKeys = keys1.filter(k => keys2.includes(k));
-    const valueSimilarity = commonKeys.reduce((acc, key) => {
-      return acc + (this.calculateValueSimilarity(obj1[key], obj2[key], depth + 1) || 0);
-    }, 0) / Math.max(keys1.length, keys2.length);
+    let valueSimilarity = 0;
+    if (commonKeys.length > 0) {
+      valueSimilarity = commonKeys.reduce((acc, key) => {
+        const val1 = obj1[key];
+        const val2 = obj2[key];
+        
+        if (typeof val1 === 'object' && val1 !== null && !Array.isArray(val1) &&
+            typeof val2 === 'object' && val2 !== null && !Array.isArray(val2)) {
+          // For nested objects, calculate similarity recursively
+          const nestedSimilarity = this.calculateObjectSimilarity(val1, val2, depth + 1);
+          return acc + (nestedSimilarity || 0);
+        } else if (Array.isArray(val1) && Array.isArray(val2)) {
+          // For arrays, use array similarity
+          const arraySimilarity = this.calculateArraySimilarity(val1, val2);
+          return acc + (arraySimilarity || 0);
+        } else if (typeof val1 === 'string' && typeof val2 === 'string') {
+          // For strings, use string similarity
+          const stringSimilarity = this.calculateStringSimilarity(val1, val2);
+          return acc + (stringSimilarity || 0);
+        } else if (typeof val1 === 'number' && typeof val2 === 'number') {
+          // For numbers, use number similarity
+          const numberSimilarity = this.calculateNumberSimilarity(val1, val2);
+          return acc + (numberSimilarity || 0);
+        }
+        
+        // For exact matches of other types
+        return acc + (val1 === val2 ? 1 : 0);
+      }, 0) / commonKeys.length;
+    }
     
-    return (structureSimilarity * this.options.resourceComparison.structureWeight) +
-           (valueSimilarity * this.options.resourceComparison.valueWeight);
+    const similarity = (
+      structureSimilarity * this.options.resourceComparison.structureWeight +
+      valueSimilarity * this.options.resourceComparison.valueWeight
+    );
+    
+    return Math.max(0, Math.min(1, similarity));
   }
 
   // Format results / 結果をフォーマット
@@ -812,7 +904,14 @@ class DuplicateChecker {
 
 // メイン処理の実行
 async function main() {
-  const projectPath = process.argv[2] || '.';
+  const projectPath = process.argv[2];
+  if (!projectPath) {
+    throw new DuplicateCheckerError(
+      ErrorCodes.INVALID_CONFIG,
+      i18n.__('errors.invalidConfig'),
+      { details: 'Project path is required' }
+    );
+  }
   const checker = new DuplicateChecker(projectPath);
 
   try {
@@ -877,7 +976,11 @@ async function main() {
 
   } catch (error) {
     console.error(i18n.__('errors.main', { error: error.message }));
-    process.exit(1);
+    if (process.env.NODE_ENV === 'test') {
+      throw error;
+    } else {
+      process.exit(1);
+    }
   }
 }
 
@@ -889,4 +992,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { DuplicateChecker as default, DuplicateCheckerError };
+export { DuplicateChecker as default, DuplicateCheckerError, main };

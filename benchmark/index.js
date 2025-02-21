@@ -15,10 +15,9 @@ async function generateLargeProject(fileCount = 1000) { // Start with smaller co
       console.log(`Generated ${i} files...`);
     }
     const content = `
+      // Simplified test function to reduce complexity
       function test${i}() {
-        const a = ${i};
-        const b = ${i + 1};
-        return ${i % 3 === 0 ? 'a + b' : i % 3 === 1 ? 'x + y' : 'c - d'};
+        return ${i % 2 === 0 ? 'a + b' : 'x + y'};
       }
 
       const resource${i} = {

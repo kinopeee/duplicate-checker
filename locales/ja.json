@@ -25,6 +25,15 @@
 		"resourceDuplicates": "errors.resourceDuplicates",
 		"memoryLimit": "errors.memoryLimit",
 		"directoryProcessing": "errors.directoryProcessing",
-		"invalidConfig": "errors.invalidConfig"
+		"invalidConfig": "errors.invalidConfig",
+		"main": "errors.main"
+	},
+	"progress": {
+		"starting": "progress.starting",
+		"filesFound": "progress.filesFound"
+	},
+	"results": {
+		"summary": "results.summary",
+		"details": "results.details"
 	}
 }
