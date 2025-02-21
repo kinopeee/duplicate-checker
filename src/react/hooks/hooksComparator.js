@@ -44,19 +44,22 @@ export class ReactHooksComparator {
   }
 
   compareStateHook(hook1, hook2) {
-    if (hook1.type !== hook2.type) return 0;
+    if (!hook1 || !hook2 || hook1.type !== hook2.type) return 0;
 
     let similarity = 0;
+    let totalWeight = 0;
     
-    // Compare initial values
+    // Compare initial values (weight: 0.5)
+    totalWeight += 0.5;
     if (hook1.initialValue === hook2.initialValue) {
       similarity += 0.5;
     } else if (typeof hook1.initialValue === typeof hook2.initialValue) {
       similarity += 0.3;
     }
 
-    // Compare setter naming patterns
+    // Compare setter naming patterns (weight: 0.5)
     if (hook1.setter && hook2.setter) {
+      totalWeight += 0.5;
       const pattern1 = this.extractSetterPattern(hook1.setter);
       const pattern2 = this.extractSetterPattern(hook2.setter);
       if (pattern1 === pattern2) {
@@ -64,7 +67,7 @@ export class ReactHooksComparator {
       }
     }
 
-    return similarity;
+    return totalWeight > 0 ? similarity / totalWeight : 0;
   }
 
   compareEffectHooks(hooks1 = [], hooks2 = []) {
@@ -82,23 +85,30 @@ export class ReactHooksComparator {
   }
 
   compareEffectHook(hook1, hook2) {
-    if (hook1.type !== hook2.type) return 0;
+    if (!hook1 || !hook2 || hook1.type !== hook2.type) return 0;
 
     let similarity = 0;
+    let totalWeight = 0;
 
-    // Compare cleanup presence
-    if (hook1.effect.hasCleanup === hook2.effect.hasCleanup) {
-      similarity += 0.3;
+    // Compare cleanup presence (weight: 0.3)
+    if (hook1.effect && hook2.effect) {
+      totalWeight += 0.3;
+      if (hook1.effect.hasCleanup === hook2.effect.hasCleanup) {
+        similarity += 0.3;
+      }
     }
 
-    // Compare dependencies
-    const depsIntersection = hook1.dependencies.filter(dep => 
-      hook2.dependencies.includes(dep)
-    );
-    const depsUnion = new Set([...hook1.dependencies, ...hook2.dependencies]);
-    similarity += 0.7 * (depsIntersection.length / depsUnion.size);
+    // Compare dependencies (weight: 0.7)
+    if (hook1.dependencies && hook2.dependencies) {
+      totalWeight += 0.7;
+      const depsIntersection = hook1.dependencies.filter(dep => 
+        hook2.dependencies.includes(dep)
+      );
+      const depsUnion = new Set([...hook1.dependencies, ...hook2.dependencies]);
+      similarity += 0.7 * (depsIntersection.length / depsUnion.size);
+    }
 
-    return similarity;
+    return totalWeight > 0 ? similarity / totalWeight : 0;
   }
 
   compareCustomHooks(hooks1 = [], hooks2 = []) {
@@ -116,15 +126,17 @@ export class ReactHooksComparator {
   }
 
   compareCustomHook(hook1, hook2) {
-    if (hook1.type !== hook2.type) return 0;
+    if (!hook1 || !hook2 || hook1.type !== hook2.type) return 0;
 
     // Compare arguments
+    if (!hook1.arguments || !hook2.arguments) return 0;
+
     const argsIntersection = hook1.arguments.filter((arg, index) => 
       arg === hook2.arguments[index]
     );
     const maxArgs = Math.max(hook1.arguments.length, hook2.arguments.length);
 
-    return argsIntersection.length / maxArgs;
+    return maxArgs > 0 ? argsIntersection.length / maxArgs : 0;
   }
 
   extractSetterPattern(setterName) {
