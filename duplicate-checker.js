@@ -38,59 +38,112 @@ const { default: traverseDefault } = traverse;
 class DuplicateChecker {
   constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
-    this.functionHashes = new Map();
-    this.moduleHashes = new Map();
-    this.resourceHashes = new Map();
+    // メモリ効率を改善するためにWeakMapを使用
+    this.functionHashes = new WeakMap();
+    this.moduleHashes = new WeakMap();
+    this.resourceHashes = new WeakMap();
     this.duplicates = {
       functions: new Map(),
       modules: new Map(),
       resources: new Map()
     };
+    // デフォルトオプションを別オブジェクトとして分離
     this.options = {
-      excludePackageFiles: true,
-      similarityThreshold: 0.7,
-      minFunctionLines: 3,
-      debug: false,
-      excludePatterns: [
-        'tsconfig.json',
-        'package.json',
-        'package-lock.json',
-        '*.config.json',
-        '*.config.js',
-        '*.config.ts'
-      ],
+      ...DuplicateChecker.defaultOptions,
       ...options
+    };
+    // パフォーマンスモニタリングの初期化
+    this.metrics = {
+      startTime: 0,
+      endTime: 0,
+      totalFiles: 0,
+      processedFiles: 0
     };
   }
 
+  // デフォルトオプションを静的プロパティとして定義
+  static defaultOptions = {
+    excludePackageFiles: true,
+    similarityThreshold: 0.7,
+    minFunctionLines: 3,
+    debug: false,
+    excludePatterns: [
+      'tsconfig.json',
+      'package.json',
+      'package-lock.json',
+      '*.config.json',
+      '*.config.js',
+      '*.config.ts'
+    ],
+    maxConcurrentProcesses: 4, // 並行処理の制限
+    memoryLimit: 1024 * 1024 * 1024 // 1GB のメモリ制限
+  };
+  }
+
   // Recursively search for files / ファイルを再帰的に検索
-  async findFiles(dir) {
-    const files = await fs.promises.readdir(dir);
+  async findFiles(dir, depth = 0) {
+    // メモリ使用量のチェック
+    const memoryUsage = process.memoryUsage().heapUsed;
+    if (memoryUsage > this.options.memoryLimit) {
+      throw new Error(i18n.__('errors.memoryLimit', { limit: Math.round(this.options.memoryLimit / 1024 / 1024) }));
+    }
+
     const result = {
       codeFiles: [],
       resourceFiles: []
     };
 
-    for (const file of files) {
-      const filePath = path.join(dir, file);
-      const stat = await fs.promises.stat(filePath);
+    try {
+      const files = await fs.promises.readdir(dir);
+      const processFile = async (file) => {
+        const filePath = path.join(dir, file);
+        try {
+          const stat = await fs.promises.stat(filePath);
 
-      if (stat.isDirectory()) {
-        if (!this.isIgnoredDirectory(file)) {
-          const subFiles = await this.findFiles(filePath);
-          result.codeFiles.push(...subFiles.codeFiles);
-          result.resourceFiles.push(...subFiles.resourceFiles);
+          if (stat.isDirectory()) {
+            if (!this.isIgnoredDirectory(file)) {
+              const subFiles = await this.findFiles(filePath, depth + 1);
+              result.codeFiles.push(...subFiles.codeFiles);
+              result.resourceFiles.push(...subFiles.resourceFiles);
+            }
+          } else if (!this.shouldExcludeFile(file)) {
+            if (this.isCodeFile(file)) {
+              result.codeFiles.push(filePath);
+            } else if (this.isResourceFile(file)) {
+              result.resourceFiles.push(filePath);
+            }
+          }
+        } catch (error) {
+          console.warn(i18n.__('warnings.fileProcessing', { file: filePath, error: error.message }));
         }
-      } else if (!this.shouldExcludeFile(file)) {
-        if (this.isCodeFile(file)) {
-          result.codeFiles.push(filePath);
-        } else if (this.isResourceFile(file)) {
-          result.resourceFiles.push(filePath);
-        }
+      };
+
+      // 並行処理の実装
+      const chunks = this.chunkArray(files, this.options.maxConcurrentProcesses);
+      for (const chunk of chunks) {
+        await Promise.all(chunk.map(file => processFile(file)));
       }
+
+      // 進捗の追跡
+      if (depth === 0) {
+        this.metrics.totalFiles = result.codeFiles.length + result.resourceFiles.length;
+      }
+
+    } catch (error) {
+      console.error(i18n.__('errors.directoryProcessing', { dir, error: error.message }));
+      throw error;
     }
 
     return result;
+  }
+
+  // 配列を指定サイズのチャンクに分割
+  chunkArray(array, size) {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
   }
 
   // Check for ignored directories / 無視するディレクトリの判定
@@ -557,9 +610,52 @@ class DuplicateChecker {
   }
 }
 
-// Execute main process / メイン処理の実行
-const projectPath = process.argv[2] || '.';
-const checker = new DuplicateChecker(projectPath);
+// メイン処理の実行
+async function main() {
+  const projectPath = process.argv[2] || '.';
+  const checker = new DuplicateChecker(projectPath);
+
+  try {
+    // 処理開始時間の記録
+    checker.metrics.startTime = Date.now();
+
+    // 進捗表示の初期化
+    console.log(i18n.__('progress.starting'));
+
+    // ファイル検索の実行
+    const files = await checker.findFiles(checker.projectPath);
+    console.log(i18n.__('progress.filesFound', { count: files.codeFiles.length + files.resourceFiles.length }));
+
+    // 重複チェックの実行
+    await checker.checkDuplicates(files);
+
+    // 処理終了時間の記録
+    checker.metrics.endTime = Date.now();
+
+    // 結果の表示
+    const duplicateCount = {
+      functions: checker.duplicates.functions.size,
+      modules: checker.duplicates.modules.size,
+      resources: checker.duplicates.resources.size
+    };
+
+    console.log(i18n.__('results.summary', {
+      time: ((checker.metrics.endTime - checker.metrics.startTime) / 1000).toFixed(2),
+      files: checker.metrics.totalFiles,
+      duplicates: Object.values(duplicateCount).reduce((a, b) => a + b, 0)
+    }));
+
+    // 詳細な結果の表示
+    checker.displayResults();
+
+  } catch (error) {
+    console.error(i18n.__('errors.main', { error: error.message }));
+    process.exit(1);
+  }
+}
+
+// メイン処理の実行
+main();
 
 checker.analyzeDuplicates()
   .then(duplicates => {
