@@ -293,6 +293,7 @@ class DuplicateChecker {
 
   // Check for duplicate resources / リソースの重複をチェック
   async checkResourceDuplicates(files) {
+    console.log('Starting resource duplicate analysis...');
     // Reset resource hashes for each run
     this.resourceHashes = new Map();
     
@@ -433,6 +434,7 @@ class DuplicateChecker {
 
   // Check for duplicate modules / モジュールの重複をチェック
   async checkModuleDuplicates(files) {
+    console.log('Starting module similarity analysis...');
     const modules = new Map();
 
     for (const file of files) {
@@ -480,7 +482,13 @@ class DuplicateChecker {
       const resourceFiles = files.resourceFiles;
 
       // Check functions in code files first
+      console.log('Analyzing code files...');
+      let processedFiles = 0;
       for (const file of codeFiles) {
+        processedFiles++;
+        if (processedFiles % 100 === 0) {
+          console.log(`Processed ${processedFiles}/${codeFiles.length} code files...`);
+        }
         try {
           const code = await fs.promises.readFile(file, 'utf-8');
           const ast = parser.parse(code, {
@@ -510,11 +518,13 @@ class DuplicateChecker {
 
       // Then check for module duplicates
       if (codeFiles.length > 0) {
+        console.log('Checking for module duplicates...');
         await this.checkModuleDuplicates(codeFiles);
       }
 
       // Finally check for resource duplicates
       if (resourceFiles.length > 0) {
+        console.log('Checking for resource duplicates...');
         await this.checkResourceDuplicates(resourceFiles);
       }
 
