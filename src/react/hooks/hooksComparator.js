@@ -12,18 +12,26 @@ export class ReactHooksComparator {
     if (!hooks1 || !hooks2) return 0;
 
     const similarities = {
-      stateHooks: this.compareStateHooks(hooks1.stateHooks, hooks2.stateHooks),
-      effectHooks: this.compareEffectHooks(hooks1.effectHooks, hooks2.effectHooks),
-      customHooks: this.compareCustomHooks(hooks1.customHooks, hooks2.customHooks)
+      stateHooks: this.compareStateHooks(hooks1.stateHooks || [], hooks2.stateHooks || []),
+      effectHooks: this.compareEffectHooks(hooks1.effectHooks || [], hooks2.effectHooks || []),
+      customHooks: this.compareCustomHooks(hooks1.customHooks || [], hooks2.customHooks || [])
+    };
+
+    const weights = {
+      stateHooks: this.options.stateHookWeight,
+      effectHooks: this.options.effectHookWeight,
+      customHooks: this.options.customHookWeight
     };
 
     let totalWeight = 0;
     let weightedSum = 0;
 
     Object.entries(similarities).forEach(([key, value]) => {
-      const weight = this.options[`${key}Weight`] || 0;
-      totalWeight += weight;
-      weightedSum += (value * weight);
+      const weight = weights[key];
+      if (weight) {
+        totalWeight += weight;
+        weightedSum += (value * weight);
+      }
     });
 
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
