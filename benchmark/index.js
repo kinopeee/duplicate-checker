@@ -8,8 +8,12 @@ async function generateLargeProject(fileCount = 1000) { // Start with smaller co
     fs.mkdirSync(testDir, { recursive: true });
   }
 
+  console.log(`Generating ${fileCount} test files...`);
   // Generate test files with varying content to test duplicate detection
   for (let i = 0; i < fileCount; i++) {
+    if (i % 100 === 0) {
+      console.log(`Generated ${i} files...`);
+    }
     const content = `
       function test${i}() {
         const a = ${i};

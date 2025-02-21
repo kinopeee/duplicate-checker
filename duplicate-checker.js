@@ -461,6 +461,8 @@ class DuplicateChecker {
 
   // Analyze files to detect duplicate functions / ファイルを解析して関数の重複を検出
   async analyzeDuplicates() {
+    // Start performance monitoring
+    const startTime = Date.now();
     try {
       // Validate configuration first
       if (!this.options.resourceComparison) {
@@ -516,7 +518,18 @@ class DuplicateChecker {
         await this.checkResourceDuplicates(resourceFiles);
       }
 
-      return this.formatResults();
+      const results = this.formatResults();
+      
+      // Log performance metrics
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000;
+      console.log(`Analysis completed in ${duration.toFixed(2)}s`);
+      console.log('Memory usage:', {
+        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+        heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+      });
+      
+      return results;
     } catch (error) {
       if (error instanceof DuplicateCheckerError) {
         throw error;
