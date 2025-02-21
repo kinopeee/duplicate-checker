@@ -66,7 +66,10 @@ export class ReactStyleAnalyzer {
           styledComponents.push({
             name: decl.id.name,
             baseComponent: decl.init.tag.property.name,
-            styles: [decl.init.quasi.quasis.map(quasi => quasi.value.raw.trim().replace(/\s+(?!$)/g, '')).join('')]
+            styles: [decl.init.quasi.quasis.map(quasi => {
+              const css = quasi.value.raw.trim();
+              return css.replace(/:\s*/g, ': ').replace(/;\s*/g, ';').replace(/\s+/g, ' ');
+            }).join('')]
           });
         }
       });
