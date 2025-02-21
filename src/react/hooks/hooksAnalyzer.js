@@ -137,8 +137,7 @@ export class ReactHooksAnalyzer {
     const dependencies = new Set();
     this.traverseNode(node, (path) => {
       if (t.isIdentifier(path.node) &&
-          !t.isMemberExpression(path.parent) &&
-          !path.scope.hasBinding(path.node.name)) {
+          !t.isMemberExpression(path.parent)) {
         dependencies.add(path.node.name);
       }
     });

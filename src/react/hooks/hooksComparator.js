@@ -23,7 +23,7 @@ export class ReactHooksComparator {
     }, 0);
   }
 
-  compareStateHooks(hooks1, hooks2) {
+  compareStateHooks(hooks1 = [], hooks2 = []) {
     if (!hooks1.length || !hooks2.length) return 0;
 
     let totalSimilarity = 0;
@@ -31,7 +31,7 @@ export class ReactHooksComparator {
 
     hooks1.forEach(hook1 => {
       const similarities = hooks2.map(hook2 => this.compareStateHook(hook1, hook2));
-      totalSimilarity += Math.max(...similarities);
+      totalSimilarity += Math.max(...similarities) || 0;
     });
 
     return totalSimilarity / maxSimilarity;
@@ -61,7 +61,7 @@ export class ReactHooksComparator {
     return similarity;
   }
 
-  compareEffectHooks(hooks1, hooks2) {
+  compareEffectHooks(hooks1 = [], hooks2 = []) {
     if (!hooks1.length || !hooks2.length) return 0;
 
     let totalSimilarity = 0;
@@ -69,7 +69,7 @@ export class ReactHooksComparator {
 
     hooks1.forEach(hook1 => {
       const similarities = hooks2.map(hook2 => this.compareEffectHook(hook1, hook2));
-      totalSimilarity += Math.max(...similarities);
+      totalSimilarity += Math.max(...similarities) || 0;
     });
 
     return totalSimilarity / maxSimilarity;
@@ -95,7 +95,7 @@ export class ReactHooksComparator {
     return similarity;
   }
 
-  compareCustomHooks(hooks1, hooks2) {
+  compareCustomHooks(hooks1 = [], hooks2 = []) {
     if (!hooks1.length || !hooks2.length) return 0;
 
     let totalSimilarity = 0;
@@ -103,7 +103,7 @@ export class ReactHooksComparator {
 
     hooks1.forEach(hook1 => {
       const similarities = hooks2.map(hook2 => this.compareCustomHook(hook1, hook2));
-      totalSimilarity += Math.max(...similarities);
+      totalSimilarity += Math.max(...similarities) || 0;
     });
 
     return totalSimilarity / maxSimilarity;
