@@ -11,6 +11,9 @@ export class ReactStyleComparator {
   compareStyles(styles1, styles2) {
     if (!styles1 || !styles2) return 0;
 
+    // If both objects are empty, they are identical
+    if (Object.keys(styles1).length === 0 && Object.keys(styles2).length === 0) return 1;
+
     const similarities = {
       inlineStyles: this.compareInlineStyles(styles1.inlineStyles || [], styles2.inlineStyles || []),
       classNames: this.compareClassNames(styles1.classNames || [], styles2.classNames || []),
