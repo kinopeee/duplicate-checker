@@ -6,6 +6,8 @@ import crypto from 'crypto';
 import yaml from 'js-yaml';
 import { I18n } from 'i18n';
 import { fileURLToPath } from 'url';
+import { ReactDuplicateDetector } from './src/react/index.js';
+import * as t from '@babel/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,8 +65,10 @@ class DuplicateChecker {
     this.duplicates = {
       functions: new Map(),
       modules: new Map(),
-      resources: new Map()
+      resources: new Map(),
+      reactComponents: new Map()
     };
+    this.reactDetector = new ReactDuplicateDetector(options);
     // デフォルトオプションを別オブジェクトとして分離
     this.options = {
       ...DuplicateChecker.defaultOptions,
@@ -565,6 +569,15 @@ class DuplicateChecker {
                 this.checkFunction(path.node, file, path.parent.id.name);
               }
             },
+            JSXElement: (path) => {
+              const parentFunction = path.findParent(p => 
+                t.isFunctionDeclaration(p) || 
+                (t.isArrowFunctionExpression(p) && t.isVariableDeclarator(p.parent))
+              );
+              if (parentFunction) {
+                this.checkReactComponent(parentFunction.node, file);
+              }
+            }
           });
         } catch (error) {
           console.warn(new DuplicateCheckerError(
@@ -850,6 +863,16 @@ class DuplicateChecker {
     return Math.max(0, Math.min(1, similarity));
   }
 
+  // Check for React component duplicates / Reactコンポーネントの重複をチェック
+  async checkReactComponent(node, file) {
+    const duplicates = await this.reactDetector.detectDuplicates([{ node, file }]);
+    
+    for (const duplicate of duplicates) {
+      const hash = this.generateHash(`${duplicate.files[0]}${duplicate.files[1]}`);
+      this.duplicates.reactComponents.set(hash, duplicate);
+    }
+  }
+
   // Format results / 結果をフォーマット
   formatResults() {
     const duplicates = {
@@ -859,6 +882,11 @@ class DuplicateChecker {
           file: path.relative(this.projectPath, loc.file),
           name: loc.name
         }))
+      })),
+      reactComponents: Array.from(this.duplicates.reactComponents.values()).map(dup => ({
+        similarity: dup.similarity * 100,
+        files: dup.files.map(file => path.relative(this.projectPath, file)),
+        details: dup.details
       })),
       modules: Array.from(this.duplicates.modules.values()).map(dup => ({
         similarity: dup.similarity * 100,
@@ -951,6 +979,21 @@ async function main() {
         dup.occurrences.forEach(loc => {
           console.log(i18n.__('resourceLocationFormat', loc.file, loc.key));
         });
+      });
+    }
+
+    // Display React component duplicates
+    console.log('\nDuplicate React Components');
+    if (results.reactComponents.length === 0) {
+      console.log('No duplicate React components found.');
+    } else {
+      results.reactComponents.forEach(dup => {
+        console.log(`\nSimilarity: ${dup.similarity.toFixed(1)}%`);
+        console.log('Files:');
+        dup.files.forEach(file => console.log(`- ${file}`));
+        console.log('Details:');
+        console.log(`- Props similarity: ${(dup.details.props * 100).toFixed(1)}%`);
+        console.log(`- JSX similarity: ${(dup.details.jsx * 100).toFixed(1)}%`);
       });
     }
 

@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { jest } from '@jest/globals';
 
+jest.mock('./src/react/index.js', () => ({
+  ReactDuplicateDetector: class MockReactDuplicateDetector {
+    constructor() {}
+    detectDuplicates() { return []; }
+  }
+}));
+
 // Test configuration
 const languages = ['en', 'ja'];
 const expectedMessages = {
