@@ -14,10 +14,11 @@ export class ReactStyleComparator {
     // If both objects are identical, return 1
     if (JSON.stringify(styles1) === JSON.stringify(styles2)) return 1;
 
+    // Calculate individual similarities
     const similarities = {
-      inlineStyles: this.compareInlineStyles(styles1.inlineStyles || [], styles2.inlineStyles || []),
-      classNames: this.compareClassNames(styles1.classNames || [], styles2.classNames || []),
-      styledComponents: this.compareStyledComponents(styles1.styledComponents || [], styles2.styledComponents || [])
+      inlineStyles: styles1.inlineStyles && styles2.inlineStyles ? this.compareInlineStyles(styles1.inlineStyles, styles2.inlineStyles) : 0,
+      classNames: styles1.classNames && styles2.classNames ? this.compareClassNames(styles1.classNames, styles2.classNames) : 0,
+      styledComponents: styles1.styledComponents && styles2.styledComponents ? this.compareStyledComponents(styles1.styledComponents, styles2.styledComponents) : 0
     };
 
     let totalWeight = 0;
