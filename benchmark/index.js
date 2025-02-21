@@ -41,7 +41,15 @@ async function generateLargeProject(fileCount = 1000) { // Start with smaller co
       fs.writeFileSync(path.join(testDir, `resource${i}.json`), JSON.stringify(resource, null, 2));
     }
   }
+  console.log(`Generated ${fileCount} files`);
   return testDir;
+}
+
+async function cleanupTestDir(testDir) {
+  if (fs.existsSync(testDir)) {
+    console.log('Cleaning up test directory...');
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
 }
 
 async function runBenchmark() {
@@ -96,7 +104,7 @@ async function runBenchmark() {
   console.timeEnd('Total execution');
   
   // Cleanup
-  fs.rmSync(testDir, { recursive: true, force: true });
+  await cleanupTestDir(testDir);
   return results;
 }
 
