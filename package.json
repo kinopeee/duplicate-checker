@@ -5,7 +5,8 @@
   "main": "duplicate-checker.js",
   "type": "module",
   "scripts": {
-    "test": "node test.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
   "keywords": [
     "duplicate",
@@ -20,5 +21,8 @@
     "i18n": "^0.15.1",
     "i18n-js": "^4.5.1",
     "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
