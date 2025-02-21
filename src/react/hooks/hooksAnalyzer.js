@@ -157,8 +157,14 @@ export class ReactHooksAnalyzer {
   }
 
   traverseNode(node, callback) {
+    const visited = new WeakSet();
     const traverse = (node) => {
+      if (!node || typeof node !== 'object' || visited.has(node)) {
+        return;
+      }
+      visited.add(node);
       callback({ node, parent: node.parent });
+      
       for (const key in node) {
         if (node[key] && typeof node[key] === 'object') {
           node[key].parent = node;
