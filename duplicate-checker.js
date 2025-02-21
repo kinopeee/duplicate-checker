@@ -224,34 +224,73 @@ class DuplicateChecker {
   }
 
   // Recursively check resource keys / リソースのキーを再帰的にチェック
-  checkResourceKeys(obj, prefix, file) {
-    if (!obj || typeof obj !== 'object') return;
+  checkResourceKeys(obj, prefix, file, depth = 0) {
+    if (!obj || typeof obj !== 'object' || depth > this.options.resourceComparison.maxDepth) return;
 
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${key}` : key;
-
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        this.checkResourceKeys(value, fullKey, file);
-      } else {
-        const hash = this.generateHash(String(value));
-
-        if (this.resourceHashes.has(hash)) {
-          const existing = this.resourceHashes.get(hash);
-          if (!this.duplicates.resources.has(hash)) {
-            this.duplicates.resources.set(hash, {
-              value,
-              locations: [
-                { file: existing.file, key: existing.key },
-                { file, key: fullKey }
-              ]
-            });
+      
+      if (value && typeof value === 'object') {
+        if (Array.isArray(value)) {
+          const hash = this.generateHash(JSON.stringify(value));
+          const cacheKey = `array_${hash}`;
+          
+          if (this.resourceHashes.has(cacheKey)) {
+            const existing = this.resourceHashes.get(cacheKey);
+            const similarity = this.calculateArraySimilarity(value, existing.value);
+            
+            if (similarity >= this.options.resourceComparison.arrayThreshold) {
+              this.recordDuplicate(cacheKey, value, file, fullKey, similarity);
+            }
           } else {
-            this.duplicates.resources.get(hash).locations.push({ file, key: fullKey });
+            this.resourceHashes.set(cacheKey, { file, key: fullKey, value });
           }
         } else {
-          this.resourceHashes.set(hash, { file, key: fullKey });
+          this.checkResourceKeys(value, fullKey, file, depth + 1);
+        }
+      } else {
+        const valueType = typeof value;
+        const hash = this.generateHash(String(value));
+        const cacheKey = `${valueType}_${hash}`;
+        
+        if (this.resourceHashes.has(cacheKey)) {
+          const existing = this.resourceHashes.get(cacheKey);
+          let similarity = 0;
+          
+          if (valueType === 'string' && this.options.resourceComparison.enableStringComparison) {
+            similarity = this.calculateStringSimilarity(value, existing.value);
+          } else if (valueType === 'number' && this.options.resourceComparison.enableNumberComparison) {
+            similarity = this.calculateNumberSimilarity(value, existing.value);
+          } else {
+            similarity = value === existing.value ? 1 : 0;
+          }
+          
+          const threshold = valueType === 'string' ? this.options.resourceComparison.stringThreshold :
+                          valueType === 'number' ? this.options.resourceComparison.numberThreshold : 1;
+          
+          if (similarity >= threshold) {
+            this.recordDuplicate(cacheKey, value, file, fullKey, similarity);
+          }
+        } else {
+          this.resourceHashes.set(cacheKey, { file, key: fullKey, value });
         }
       }
+    }
+  }
+
+  recordDuplicate(hash, value, file, key, similarity) {
+    if (!this.duplicates.resources.has(hash)) {
+      const existing = this.resourceHashes.get(hash);
+      this.duplicates.resources.set(hash, {
+        value,
+        similarity,
+        locations: [
+          { file: existing.file, key: existing.key },
+          { file, key }
+        ]
+      });
+    } else {
+      this.duplicates.resources.get(hash).locations.push({ file, key });
     }
   }
 
@@ -387,6 +426,94 @@ class DuplicateChecker {
     } else {
       this.functionHashes.set(hash, { file, name });
     }
+  }
+
+  // Utility functions for similarity calculations
+  calculateLevenshteinDistance(str1, str2) {
+    const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
+    
+    for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+    for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+    
+    for (let j = 1; j <= str2.length; j++) {
+      for (let i = 1; i <= str1.length; i++) {
+        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+        matrix[j][i] = Math.min(
+          matrix[j - 1][i] + 1,
+          matrix[j][i - 1] + 1,
+          matrix[j - 1][i - 1] + cost
+        );
+      }
+    }
+    return matrix[str2.length][str1.length];
+  }
+
+  calculateStringSimilarity(str1, str2) {
+    const distance = this.calculateLevenshteinDistance(str1, str2);
+    return 1 - (distance / Math.max(str1.length, str2.length));
+  }
+
+  calculateNumberSimilarity(num1, num2) {
+    const relativeDiff = Math.abs(num1 - num2) / Math.max(Math.abs(num1), Math.abs(num2));
+    return 1 - relativeDiff;
+  }
+
+  calculateArraySimilarity(arr1, arr2) {
+    // Ordered comparison (70% weight)
+    const orderedSimilarity = arr1.reduce((acc, val, idx) => {
+      return acc + (this.calculateValueSimilarity(val, arr2[idx] || null) || 0);
+    }, 0) / Math.max(arr1.length, arr2.length);
+
+    // Unordered comparison (30% weight)
+    const matches = arr1.reduce((acc, val1) => {
+      const bestMatch = Math.max(...arr2.map(val2 => 
+        this.calculateValueSimilarity(val1, val2) || 0
+      ));
+      return acc + bestMatch;
+    }, 0) / Math.max(arr1.length, arr2.length);
+
+    return (orderedSimilarity * 0.7) + (matches * 0.3);
+  }
+
+  calculateValueSimilarity(val1, val2) {
+    if (val1 === null || val2 === null) return 0;
+    if (typeof val1 !== typeof val2) return 0;
+
+    const type = typeof val1;
+    if (type === 'string' && this.options.resourceComparison.enableStringComparison) {
+      return this.calculateStringSimilarity(val1, val2);
+    }
+    if (type === 'number' && this.options.resourceComparison.enableNumberComparison) {
+      return this.calculateNumberSimilarity(val1, val2);
+    }
+    if (Array.isArray(val1) && this.options.resourceComparison.enableArrayOrderCheck) {
+      return this.calculateArraySimilarity(val1, val2);
+    }
+    if (type === 'object') {
+      return this.calculateObjectSimilarity(val1, val2);
+    }
+    return val1 === val2 ? 1 : 0;
+  }
+
+  calculateObjectSimilarity(obj1, obj2, depth = 0) {
+    if (depth >= this.options.resourceComparison.maxDepth) return 0;
+    
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+    
+    // Structure similarity (40%)
+    const structureSimilarity = 
+      keys1.filter(k => keys2.includes(k)).length / 
+      Math.max(keys1.length, keys2.length);
+    
+    // Value similarity (60%)
+    const commonKeys = keys1.filter(k => keys2.includes(k));
+    const valueSimilarity = commonKeys.reduce((acc, key) => {
+      return acc + (this.calculateValueSimilarity(obj1[key], obj2[key], depth + 1) || 0);
+    }, 0) / Math.max(keys1.length, keys2.length);
+    
+    return (structureSimilarity * this.options.resourceComparison.structureWeight) +
+           (valueSimilarity * this.options.resourceComparison.valueWeight);
   }
 
   // Format results / 結果をフォーマット
