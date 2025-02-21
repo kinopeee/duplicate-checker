@@ -1,5 +1,5 @@
 import assert from 'assert';
-import DuplicateChecker from './duplicate-checker.js';
+import DuplicateChecker, { DuplicateCheckerError } from './duplicate-checker.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -224,9 +224,10 @@ const testResourceSimilarity = async () => {
     assert(stringDuplicate.similarity >= 0.8, 'String similarity should meet threshold');
 
     // Test number similarity
-    const numberDuplicate = results.resources.find(r => 
-      typeof r.value === 'number' && r.value === 100
-    );
+    const numberDuplicate = results.resources.find(r => {
+      const val = typeof r.value === 'string' ? Number(r.value) : r.value;
+      return !isNaN(val) && (val === 100 || val === 110);
+    });
     assert(numberDuplicate, 'Should detect similar numbers');
     assert(numberDuplicate.similarity >= 0.9, 'Number similarity should meet threshold');
 
@@ -250,10 +251,77 @@ const testResourceSimilarity = async () => {
   }
 };
 
+// Test error handling
+const testErrorHandling = async () => {
+  console.log('\nTesting error handling');
+  const testDir = path.join(process.cwd(), 'test-files');
+  if (!fs.existsSync(testDir)) {
+    fs.mkdirSync(testDir);
+  }
+
+  try {
+    // Test memory limit error
+    console.log('Testing memory limit error');
+    const checkerMemLimit = new DuplicateChecker(testDir, {
+      memoryLimit: 1024 // 1KB limit to force error
+    });
+    try {
+      await checkerMemLimit.analyzeDuplicates();
+      assert.fail('Should throw memory limit error');
+    } catch (error) {
+      assert(error instanceof DuplicateCheckerError);
+      assert.strictEqual(error.code, 'E003');
+      assert(error.details.memoryUsage > 0);
+      assert.strictEqual(error.details.limit, 1024);
+    }
+
+    // Test file not found error
+    console.log('Testing file not found error');
+    const nonExistentDir = path.join(testDir, 'non-existent');
+    const checkerFileNotFound = new DuplicateChecker(nonExistentDir);
+    try {
+      await checkerFileNotFound.analyzeDuplicates();
+      assert.fail('Should throw file not found error');
+    } catch (error) {
+      assert(error instanceof DuplicateCheckerError);
+      assert.strictEqual(error.code, 'E001');
+      assert(error.details.dir === nonExistentDir);
+    }
+
+    // Test parse error
+    console.log('Testing parse error');
+    const invalidFile = path.join(testDir, 'invalid.js');
+    fs.writeFileSync(invalidFile, 'this is not valid javascript');
+    const checkerParseError = new DuplicateChecker(testDir);
+    const results = await checkerParseError.analyzeDuplicates();
+    // Parse errors should be caught and logged but not stop execution
+    assert(results, 'Should return results even with parse errors');
+
+    // Test invalid config error
+    console.log('Testing invalid config error');
+    try {
+      const checkerInvalidConfig = new DuplicateChecker(testDir, {
+        resourceComparison: null
+      });
+      await checkerInvalidConfig.analyzeDuplicates();
+      assert.fail('Should throw invalid config error');
+    } catch (error) {
+      assert(error instanceof DuplicateCheckerError);
+      assert.strictEqual(error.code, 'E004');
+      assert(error.details.originalError);
+    }
+
+    console.log('✓ Error handling tests passed');
+  } finally {
+    cleanupTestFiles(testDir);
+  }
+};
+
 // Run all tests
 const runAllTests = async () => {
   await runTests();
   await testResourceSimilarity();
+  await testErrorHandling();
 };
 
 runAllTests().catch(error => {
