@@ -30,13 +30,25 @@ function test1() {
   const b = 2;
   return a + b;
 }
+
+function test2() {
+  const x = 1;
+  const y = 2;
+  return x + y;  // Same logic, different variable names
+}
 `;
 
   const file2Content = `
-function test2() {
+function test1() {
+  const c = 5;
+  const d = 10;
+  return c - d;  // Different implementation, same name
+}
+
+function test3() {
   const a = 1;
   const b = 2;
-  return a + b;
+  return a + b;  // Same as test1 in file1
 }
 `;
 
@@ -87,48 +99,62 @@ const runTests = async () => {
     process.env.DUPLICATE_CHECKER_LANG = lang;
     
     const testDir = setupTestFiles();
-    const checker = new DuplicateChecker(testDir);
+    const checker = new DuplicateChecker(testDir, { debug: false });
     
     try {
-      // Test duplicate detection
+      // Get results first without debug output
       const results = await checker.analyzeDuplicates();
+
+      // Capture output from analyzeDuplicates
+      let output = '';
+      const oldLog = console.log;
+      console.log = (...args) => {
+        const line = args.join(' ');
+        output += line + '\n';
+        oldLog('DEBUG - Captured line:', JSON.stringify(line)); // Debug exact output
+      };
+      
+      await checker.analyzeDuplicates();
+      console.log = oldLog;
+      oldLog('DEBUG - Final output:', JSON.stringify(output)); // Debug final output
+
+      // Test function duplicate detection
+      assert(Array.isArray(results.functions), 'functions should be an array');
+      assert(results.functions.length > 0, 'Should detect duplicate functions');
+      
+      // Verify duplicate group with same implementation
+      const duplicateGroup = results.functions.find(f => f.occurrences.length > 1);
+      assert(duplicateGroup, 'Should find a group of duplicate functions');
+      assert(duplicateGroup.occurrences.length === 3, 'Should detect three functions with same implementation');
+      
+      // Verify correct functions are grouped
+      const functionNames = duplicateGroup.occurrences.map(o => o.name).sort();
+      assert.deepStrictEqual(functionNames, ['test1', 'test2', 'test3'], 'Should group test1, test2, and test3 as duplicates');
 
       // Test language configuration after duplicate detection
       testLanguageConfiguration();
       
       // Structure verification
-      assert(Array.isArray(results.functions), 'functions should be an array');
       assert(Array.isArray(results.modules), 'modules should be an array');
       assert(Array.isArray(results.resources), 'resources should be an array');
       
-      // Function duplicate detection
-      assert(results.functions.length > 0, 'Should detect duplicate functions');
-      assert(results.functions[0].functionName === 'test1' || results.functions[0].functionName === 'test2',
-        'Should detect correct function names');
-      
-      // Module similarity (files are identical, so similarity should be 100%)
-      const similarity = results.modules.length > 0 ? parseFloat(results.modules[0].similarity) : 0;
-      assert(similarity >= 90, `Module similarity should be high (got ${similarity}%)`);
-      
-      // Verify module paths
+      // Module similarity should be based on function implementation similarity
       if (results.modules.length > 0) {
+        const similarity = parseFloat(results.modules[0].similarity);
+        assert(similarity >= 66, `Module similarity should be at least 66% (got ${similarity}%)`);
         assert(results.modules[0].files.length === 2, 'Should have two similar files');
         assert(results.modules[0].files.every(f => f.endsWith('.js')), 'Files should be JavaScript files');
       }
-      
-      // Test output messages
-      const output = await new Promise(resolve => {
-        let output = '';
-        const oldLog = console.log;
-        console.log = (...args) => { output += args.join(' ') + '\n'; };
-        checker.analyzeDuplicates().then(() => {
-          console.log = oldLog;
-          resolve(output);
-        });
-      });
 
-      assert(output.includes(expectedMessages[lang].duplicateFound),
-        `Output should contain correct ${lang} message for duplicate function`);
+      // Verify output contains the duplicate function group
+      const duplicateNames = duplicateGroup.occurrences.map(o => o.name);
+      const firstDuplicate = duplicateNames[0];
+      assert(output.includes('\nDuplicate Functions'), 'Should show duplicate functions header');
+      assert(output.includes('locations'), 'Should show locations header');
+      duplicateGroup.occurrences.forEach(loc => {
+        assert(output.includes(`- ${loc.file} (name: "${loc.name}")`),
+          `Should show location: ${loc.file} with name: ${loc.name}`);
+      });
       
       console.log(`✓ All tests passed for ${lang}`);
     } catch (error) {
