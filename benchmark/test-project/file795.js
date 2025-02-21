@@ -1,0 +1,13 @@
+
+      // Simplified test function to reduce complexity
+      function test795() {
+        return x + y;
+      }
+
+      const resource795 = {
+        name: "Test Resource 795",
+        value: 95,
+        tags: ["tag0","common","test"],
+        nested: { x: 5, y: 6 }
+      };
+    
