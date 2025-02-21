@@ -1,17 +1,22 @@
 import { ReactComponentAnalyzer } from './componentAnalyzer.js';
 import { ReactComponentComparator } from './componentComparator.js';
+import { ReactStyleAnalyzer } from './styles/styleAnalyzer.js';
+import { ReactStyleComparator } from './styles/styleComparator.js';
 
 export class ReactDuplicateDetector {
   constructor(options = {}) {
     this.analyzer = new ReactComponentAnalyzer(options);
     this.comparator = new ReactComponentComparator(options);
+    this.styleAnalyzer = new ReactStyleAnalyzer(options);
+    this.styleComparator = new ReactStyleComparator(options);
   }
 
   async detectDuplicates(components) {
     const analyzedComponents = await Promise.all(
       components.map(async ({ node, file }) => ({
         file,
-        component: await this.analyzer.analyzeComponent(node, file)
+        component: await this.analyzer.analyzeComponent(node, file),
+        styles: this.styleAnalyzer.analyzeStyles(node)
       }))
     );
 
@@ -22,10 +27,18 @@ export class ReactDuplicateDetector {
         const comp2 = analyzedComponents[j];
 
         if (comp1.component && comp2.component) {
-          const similarity = this.comparator.compareComponents(
+          const componentSimilarity = this.comparator.compareComponents(
             comp1.component,
             comp2.component
           );
+
+          const styleSimilarity = this.styleComparator.compareStyles(
+            comp1.styles,
+            comp2.styles
+          );
+
+          // Weight component structure more heavily than styles
+          const similarity = (componentSimilarity * 0.7) + (styleSimilarity * 0.3);
 
           if (similarity >= 0.8) {
             duplicates.push({
@@ -33,7 +46,8 @@ export class ReactDuplicateDetector {
               files: [comp1.file, comp2.file],
               details: {
                 props: this.comparator.compareProps(comp1.component.props, comp2.component.props),
-                jsx: this.comparator.compareJSX(comp1.component.jsx, comp2.component.jsx)
+                jsx: this.comparator.compareJSX(comp1.component.jsx, comp2.component.jsx),
+                styles: styleSimilarity
               }
             });
           }
