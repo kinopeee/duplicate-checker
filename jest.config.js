@@ -10,6 +10,8 @@ export default {
     }
   },
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
-  }
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^(\\.{1,2}/.*)\\.jsx?$': '$1'
+  },
+  moduleDirectories: ['node_modules', 'src']
 }
